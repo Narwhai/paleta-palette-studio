@@ -9,6 +9,8 @@ const foregroundTargets = {
   cyan: 4.5, blue: 4.5, purple: 4.5, magenta: 4.5,
 };
 const surfaceRoles = ['bg', ...Object.keys(surfaceTargets)];
+const textSurfaces = ['bg', 'bg-2', 'ui'];
+const backgroundSurfaces = ['bg', 'bg-2'];
 const roles = [...surfaceRoles, ...Object.keys(foregroundTargets)];
 
 // Anchor saturation to the selected color. As lightness approaches an endpoint,
@@ -33,10 +35,11 @@ function candidateAt(source, lightness, sourceChroma) {
 
 /**
  * Optimize one mode without mutating the supplied OKHSL colors. Surface roles
- * are first made distinguishable from bg. Text and accent roles are then
- * checked against every surface, with the strictest requirement winning.
- * If the target is impossible even at the relevant black/white endpoint, the
- * endpoint is used and the role is listed in warnings.
+ * are first made distinguishable from bg. Text and accent roles are checked
+ * against the surfaces on which the preview actually uses them; the strictest
+ * requirement wins. UI-2 and UI-3 are borders/details, not text backgrounds.
+ * If a target is impossible even at the relevant black/white endpoint, the
+ * selected color is kept and the limiting surface is reported in warnings.
  */
 export function optimizePalette(colors, mode) {
   if (mode !== 'light' && mode !== 'dark') throw new TypeError('Mode must be light or dark.');
@@ -56,22 +59,31 @@ export function optimizePalette(colors, mode) {
     const source = result[role];
     const backgroundHexes = backgrounds.map(key => okhslToHex(result[key]));
     const backgroundLuminances = backgroundHexes.map(relativeLuminance);
-    function score(color) {
+    function scores(color) {
       const hex = okhslToHex(color), lum = relativeLuminance(hex);
-      const ratios = backgroundHexes.map((bg, i) => {
+      return backgroundHexes.map((bg, i) => {
         // Avoid accepting an accidental high contrast on the wrong side.
         if (mode === 'light' ? lum > backgroundLuminances[i] : lum < backgroundLuminances[i]) return 1;
         return contrastRatio(hex, bg);
       });
-      return Math.min(...ratios);
+    }
+    function score(color) {
+      return Math.min(...scores(color));
     }
     if (score(source) >= target) return;
     const sourceChroma = okhslChroma(source);
     const extreme = candidateAt(source, endpoint, sourceChroma);
-    const maxScore = score(extreme);
+    // The endpoint is always on the required side of every sRGB background.
+    // Use actual WCAG ratios here, not the wrong-direction sentinel in scores().
+    const extremeHex = okhslToHex(extreme);
+    const extremeRatios = backgroundHexes.map(bg => contrastRatio(extremeHex, bg));
+    const maxScore = Math.min(...extremeRatios);
     if (maxScore < target) {
-      result[role] = extreme;
-      warnings.push(`${role}: ${target}:1 is not achievable against all required surfaces (best ${maxScore.toFixed(2)}:1).`);
+      const limitingRoles = backgrounds.filter((_, i) => extremeRatios[i] <= maxScore + 1e-9);
+      const selectedHex = okhslToHex(source);
+      const actualContrast = Math.min(...backgroundHexes.map(bg => contrastRatio(selectedHex, bg)));
+      const direction = mode === 'light' ? 'no lighter' : 'no darker';
+      warnings.push(`${role}: ${target}:1 is not achievable while ${direction} than ${limitingRoles.join(', ')} (best ${maxScore.toFixed(2)}:1 in that direction; selected color minimum actual contrast ${actualContrast.toFixed(2)}:1 across checked surfaces); kept the selected color.`);
       return;
     }
     // Find the smallest movement toward the correct end of the scale. Evaluate
@@ -86,6 +98,8 @@ export function optimizePalette(colors, mode) {
   }
 
   for (const [role, target] of Object.entries(surfaceTargets)) solve(role, target, ['bg']);
-  for (const [role, target] of Object.entries(foregroundTargets)) solve(role, target, surfaceRoles);
+  for (const [role, target] of Object.entries(foregroundTargets)) {
+    solve(role, target, role === 'tx' || role === 'tx-2' ? textSurfaces : backgroundSurfaces);
+  }
   return { colors: result, warnings };
 }

@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { okhslToHex } from '../src/color.js';
+import { okhslToHex, hexToOkhsl, contrastRatio } from '../src/color.js';
 
 class Element {
   constructor(tag = 'div') {
@@ -45,6 +45,7 @@ class Element {
 test('editor flows preserve per-mode palettes, undo and export', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
+  const reported = JSON.parse(await readFile(new URL('./fixtures/reported-palette.json', import.meta.url), 'utf8'));
   assert.ok(html.indexOf('id="code-preview"') > html.indexOf('id="theme-preview"'), 'code preview follows existing preview');
   assert.match(html, /<div class="optimize-actions">\s*<button[^>]*id="optimize-button"[^>]*>.*?<\/button>\s*<button[^>]*id="undo-button"[^>]*aria-describedby="undo-help"[^>]*disabled[^>]*>↶ Undo optimization<\/button>\s*<\/div>/, 'a visible undo button sits with Optimize and describes what it restores');
   assert.match(html, /id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits\./);
@@ -52,6 +53,11 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /id="import-help">Replaces both modes/);
   assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
   assert.match(html, /id="import-message"[^>]*role="status"/);
+  assert.match(html, /Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4\.5:1/);
+  assert.match(html, /Text 3 at 3:1 and each accent at 4\.5:1 are checked against BG and BG 2/);
+  assert.match(html, /colors no lighter than their checked backgrounds in light mode, and no darker in dark mode/);
+  assert.match(html, /best directional ratio and the selected color's actual minimum contrast/);
+  assert.match(html, /The contrast check above shows only BG and BG 2/);
   assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1])).size, [...html.matchAll(/\bid="([^"]+)"/g)].length, 'preview structure has no duplicate IDs');
   assert.match(html, /id="preview-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="preview-scroll"/);
   assert.match(html, /id="preview-scroll"[^>]*role="region"[^>]*tabindex="0"/);
@@ -419,6 +425,40 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     await importFile(sameFile);
     assert.deepEqual(saved().palettes, before, 'the same file can be retried after an uncommitted hex draft');
     assert.match(byId('import-message').textContent, /Imported both/);
+
+    // Exercise the user's reported palette through the real import and button
+    // handlers, not merely the optimizer function.
+    const makeExport = palettes => ({
+      name: 'Regression palette', colorSpace: 'OKHSL',
+      modes: Object.fromEntries(Object.entries(palettes).map(([mode, colors]) => [mode,
+        Object.fromEntries(Object.entries(colors).map(([role, color]) => [role, { hex: okhslToHex(color), okhsl: color }]))
+      ]))
+    });
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    assert.deepEqual(saved().palettes, reported, 'import restores both modes of the reported palette');
+    byId('optimize-button').click();
+    const optimized = saved().palettes;
+    assert.deepEqual(optimized.dark, reported.dark, 'optimizing light does not affect dark');
+    assert.deepEqual(optimized.light.tx, reported.light.tx, 'readable text is preserved');
+    for (const role of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta']) {
+      const foreground = okhslToHex(optimized.light[role]);
+      assert.notEqual(foreground, '#000000', `${role} does not collapse to black`);
+      assert.ok(contrastRatio(foreground, okhslToHex(optimized.light['bg-2'])) >= 4.5, `${role} remains readable on BG 2`);
+    }
+    assert.match(byId('optimizer-message').textContent, /Light mode optimized/);
+    assertPreviewsMatchPalette('light');
+    byId('undo-button').click();
+    assert.deepEqual(saved().palettes, reported, 'undo restores the imported snapshot');
+    assertPreviewsMatchPalette('light');
+
+    const infeasible = structuredClone(reported);
+    infeasible.light.ui = hexToOkhsl('#333333');
+    await importFile(jsonFile(makeExport(infeasible)));
+    byId('optimize-button').click();
+    assert.deepEqual(saved().palettes.light.tx, infeasible.light.tx, 'infeasible text keeps its selected color');
+    assert.match(byId('optimizer-message').textContent, /tx:.*ui.*best .*kept the selected color/i, 'the UI reports the limiting surface and retained selection');
+    assertPreviewsMatchPalette('light');
   } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
