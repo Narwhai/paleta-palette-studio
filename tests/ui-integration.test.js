@@ -31,7 +31,7 @@ class Element {
     this.listeners.get(type).push(listener);
   }
   dispatch(type) {
-    for (const listener of this.listeners.get(type) || []) listener({ type, target: this });
+    return Promise.all((this.listeners.get(type) || []).map((listener) => listener({ type, target: this })));
   }
   click() { if (!this.disabled) this.dispatch('click'); }
   setCustomValidity(message) { this.validationMessage = message; }
@@ -48,6 +48,10 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.ok(html.indexOf('id="code-preview"') > html.indexOf('id="theme-preview"'), 'code preview follows existing preview');
   assert.match(html, /<div class="optimize-actions">\s*<button[^>]*id="optimize-button"[^>]*>.*?<\/button>\s*<button[^>]*id="undo-button"[^>]*aria-describedby="undo-help"[^>]*disabled[^>]*>↶ Undo optimization<\/button>\s*<\/div>/, 'a visible undo button sits with Optimize and describes what it restores');
   assert.match(html, /id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits\./);
+  assert.match(html, /id="import-button"[^>]*aria-describedby="import-help"[^>]*>Import JSON/);
+  assert.match(html, /id="import-help">Replaces both modes/);
+  assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
+  assert.match(html, /id="import-message"[^>]*role="status"/);
   assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1])).size, [...html.matchAll(/\bid="([^"]+)"/g)].length, 'preview structure has no duplicate IDs');
   assert.match(html, /id="preview-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="preview-scroll"/);
   assert.match(html, /id="preview-scroll"[^>]*role="region"[^>]*tabindex="0"/);
@@ -157,6 +161,9 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     const lightHex = hex.value;
     byId('mode-dark').click();
     assert.notEqual(hex.value, lightHex);
+    hex.value = '#a135d2';
+    hex.dispatch('change');
+    assert.equal(hex.value, '#A135D2', 'dark mode is edited before exporting');
     assertPreviewsMatchPalette('dark');
     byId('mode-light').click();
     assert.equal(hex.value, lightHex);
@@ -221,6 +228,197 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.deepEqual(saved().palettes.dark, beforeLatest, 'repeated optimization undoes the latest optimization only');
     assertPreviewsMatchPalette('dark');
     assert.equal(byId('undo-button').disabled, true);
+
+    const fileInput = byId('import-file');
+    let pickerOpened = false;
+    fileInput.addEventListener('click', () => { pickerOpened = true; });
+    byId('import-button').click();
+    assert.equal(pickerOpened, true, 'the visible import action opens the file input');
+    const importFile = (file) => {
+      fileInput.files = [file];
+      fileInput.value = 'C:\\fakepath\\tone-palette.json';
+      return fileInput.dispatch('change');
+    };
+    const jsonFile = (value) => ({ text: async () => JSON.stringify(value) });
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false);
+    byId('mode-light').click();
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false);
+    const selectedBeforeImport = byId('selected-name').textContent;
+    await importFile(jsonFile(json));
+    assert.equal(fileInput.value, '', 'the file input resets, allowing the same file to be chosen again');
+    assert.equal(saved().mode, 'light', 'import preserves the current mode');
+    assert.equal(byId('selected-name').textContent, selectedBeforeImport, 'import preserves the selected role');
+    assert.deepEqual(saved().palettes, before, 'both edited modes round-trip with exact OKHSL values');
+    assertPreviewsMatchPalette('light');
+    assert.equal(byId('undo-button').disabled, true, 'import clears light optimization history');
+    assert.match(byId('import-message').textContent, /Imported both light and dark palettes/);
+    byId('mode-dark').click();
+    assert.equal(byId('undo-button').disabled, true, 'import also clears dark optimization history');
+    assertPreviewsMatchPalette('dark');
+    byId('download-json').click();
+    const reexported = JSON.parse(await blobs.at(-1).text());
+    assert.deepEqual(reexported.modes, json.modes, 'both modes export identically after importing');
+    byId('copy-css').click();
+    await Promise.resolve();
+    for (const mode of ['light', 'dark']) {
+      for (const [role, color] of Object.entries(before[mode])) {
+        assert.ok(clipboard.includes(`--color-${role}: ${okhslToHex(color)};`), `imported ${mode} ${role} reaches CSS export`);
+      }
+    }
+
+    slider.value = '210';
+    slider.dispatch('input');
+    assert.equal(saved().palettes.dark.red.h, 210, 'imported palettes remain editable');
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false, 'imported palettes remain optimizable');
+    const beforeInvalidImport = structuredClone(saved());
+    const invalidFiles = [
+      { file: { text: async () => '{broken' }, error: /not valid JSON/ },
+      { file: jsonFile({ ...json, colorSpace: 'HSL' }), error: /Expected a Tone JSON export/ },
+      { file: jsonFile({ colorSpace: 'OKHSL', modes: { light: json.modes.light } }), error: /Missing dark mode/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: undefined } } }), error: /missing a valid blue color/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: 361, s: 20, l: 30 } } } } }), error: /finite OKHSL values/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: null, s: 20, l: 30 } } } } }), error: /finite OKHSL values/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: 20, s: -1, l: 30 } } } } }), error: /finite OKHSL values/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: 20, s: 20, l: 101 } } } } }), error: /finite OKHSL values/ },
+      { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, hex: 'bad' } } } }), error: /missing a valid blue color/ },
+      { file: { text: async () => { throw new Error('read failed'); } }, error: /Could not read/ }
+    ];
+    for (const { file, error } of invalidFiles) {
+      await importFile(file);
+      assert.deepEqual(saved(), beforeInvalidImport, 'invalid files never partially change state or persistence');
+      assert.equal(byId('undo-button').disabled, false, 'invalid files leave undo history intact');
+      assert.equal(byId('import-message').hidden, false);
+      assert.match(byId('import-message').textContent, error);
+      assert.match(byId('import-message').textContent, /Your colors have not been changed/);
+      assertPreviewsMatchPalette('dark');
+    }
+    const sameFile = jsonFile(json);
+    await importFile(sameFile);
+    assert.deepEqual(saved().palettes, before, 'a valid file can be imported after an error');
+    assert.equal(byId('undo-button').disabled, true);
+    slider.value = '230';
+    slider.dispatch('input');
+    await importFile(sameFile);
+    assert.deepEqual(saved().palettes, before, 'selecting the exact same file again restores it');
+
+    let resolveSlow;
+    const slow = importFile({ text: () => new Promise((resolve) => { resolveSlow = resolve; }) });
+    const latest = structuredClone(json);
+    latest.modes.light.red.okhsl.h = 33;
+    await importFile(jsonFile(latest));
+    resolveSlow(JSON.stringify(json));
+    await slow;
+    assert.equal(saved().palettes.light.red.h, 33, 'an older slow read cannot overwrite the most recently selected file');
+
+    const deferredImport = () => {
+      let resolve;
+      let reject;
+      const pending = importFile({ text: () => new Promise((accept, fail) => { resolve = accept; reject = fail; }) });
+      return { pending, resolve, reject };
+    };
+    const finishCancelled = async (deferred, expected, description) => {
+      deferred.resolve(JSON.stringify(json));
+      await deferred.pending;
+      assert.deepEqual(saved(), expected, `${description}: a stale import must not overwrite the newer state`);
+      assert.match(byId('import-message').textContent, /cancelled.*palette changed.*select.*again/i);
+    };
+
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false);
+    const sliderRead = deferredImport();
+    slider.value = '174';
+    slider.dispatch('input');
+    const afterSlider = structuredClone(saved());
+    await finishCancelled(sliderRead, afterSlider, 'slider change');
+    assert.equal(byId('undo-button').disabled, false, 'a cancelled import preserves optimization undo');
+    assertPreviewsMatchPalette('dark');
+
+    const hexRead = deferredImport();
+    hex.value = '#2468aa';
+    hex.dispatch('change');
+    const afterHex = structuredClone(saved());
+    await finishCancelled(hexRead, afterHex, 'hex edit');
+    assert.equal(byId('undo-button').disabled, false);
+    assertPreviewsMatchPalette('dark');
+
+    const modeRead = deferredImport();
+    byId('mode-light').click();
+    byId('accent-swatches').children[3].click();
+    assert.match(byId('import-message').textContent, /Reading JSON/, 'mode and swatch selection do not cancel a pending import');
+    modeRead.resolve(JSON.stringify(json));
+    await modeRead.pending;
+    assert.deepEqual(saved().palettes, before, 'switching mode or selected role does not block import');
+    assert.equal(saved().mode, 'light');
+    assert.equal(saved().selected, 'green');
+    assert.match(byId('import-message').textContent, /Imported both/);
+
+    const optimizeRead = deferredImport();
+    byId('optimize-button').click();
+    const afterOptimize = structuredClone(saved());
+    assert.equal(byId('undo-button').disabled, false);
+    await finishCancelled(optimizeRead, afterOptimize, 'optimization');
+    assert.equal(byId('undo-button').disabled, false, 'optimization remains undoable after cancelling a stale read');
+
+    const undoRead = deferredImport();
+    byId('undo-button').click();
+    const afterUndo = structuredClone(saved());
+    await finishCancelled(undoRead, afterUndo, 'undo');
+    assert.equal(byId('undo-button').disabled, true);
+
+    const resetRead = deferredImport();
+    byId('reset-button').click();
+    const afterReset = structuredClone(saved());
+    await finishCancelled(resetRead, afterReset, 'reset');
+    assert.equal(saved().mode, 'light');
+    assert.equal(saved().selected, 'bg');
+
+    const failingRead = deferredImport();
+    slider.value = '88';
+    slider.dispatch('input');
+    const afterLateFailure = structuredClone(saved());
+    failingRead.reject(new Error('read failed after edit'));
+    await failingRead.pending;
+    assert.deepEqual(saved(), afterLateFailure);
+    assert.match(byId('import-message').textContent, /cancelled.*palette changed.*select.*again/i, 'a stale read failure does not overwrite the cancellation message');
+
+    const olderRead = deferredImport();
+    const newerRead = deferredImport();
+    slider.value = '61';
+    slider.dispatch('input');
+    const afterOverlappingEdit = structuredClone(saved());
+    newerRead.resolve(JSON.stringify(latest));
+    olderRead.resolve(JSON.stringify(json));
+    await Promise.all([olderRead.pending, newerRead.pending]);
+    assert.deepEqual(saved(), afterOverlappingEdit, 'an edit cancels all overlapping pending reads');
+    assert.match(byId('import-message').textContent, /cancelled.*palette changed.*select.*again/i);
+    await importFile(sameFile);
+    assert.deepEqual(saved().palettes, before, 'the same file can be retried after cancellation');
+    assert.match(byId('import-message').textContent, /Imported both/);
+
+    hex.value = '#2266bb';
+    hex.dispatch('change');
+    const beforeDraft = structuredClone(saved());
+    const draftRead = deferredImport();
+    hex.value = '#12';
+    hex.dispatch('input');
+    draftRead.resolve(JSON.stringify(json));
+    await draftRead.pending;
+    assert.equal(hex.value, '#12', 'an uncommitted hex draft survives the stale read');
+    assert.deepEqual(saved(), beforeDraft, 'a hex draft does not change or replace the palette');
+    assert.equal(byId('import-message').hidden, false, 'the cancellation message remains visible');
+    assert.match(byId('import-message').textContent, /cancelled.*palette changed.*select.*again/i);
+
+    hex.value = '#13579b';
+    hex.dispatch('input');
+    hex.dispatch('change');
+    assert.equal(hex.value, '#13579B', 'a normal hex change still commits after cancelling import');
+    assert.equal(okhslToHex(saved().palettes.light.bg), '#13579b');
+    await importFile(sameFile);
+    assert.deepEqual(saved().palettes, before, 'the same file can be retried after an uncommitted hex draft');
+    assert.match(byId('import-message').textContent, /Imported both/);
   } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

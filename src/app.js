@@ -30,6 +30,8 @@ const validColor = (color) => color && typeof color === 'object' && Number.isFin
 const validPalettes = (palettes) => palettes && ['light', 'dark'].every((mode) => palettes[mode] && ROLES.every(([role]) => validColor(palettes[mode][role])));
 let state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
 let undo = { light: null, dark: null };
+let latestImport = 0;
+let importPending = false;
 let persistenceWarning = false;
 let toastTimer;
 
@@ -53,6 +55,15 @@ try {
   }
 } catch {
   persistenceWarning = true;
+}
+
+function cancelPendingImport() {
+  if (!importPending) return;
+  latestImport++;
+  importPending = false;
+  const message = $('import-message');
+  message.textContent = 'Import cancelled because the palette changed or a color edit was started while the file was loading. Please select the JSON file again.';
+  message.hidden = false;
 }
 
 function save() {
@@ -140,7 +151,10 @@ function render() {
 
 for (const [id, property] of [['hue', 'h'], ['saturation', 's'], ['lightness', 'l']]) {
   $(id).addEventListener('input', (event) => {
-    state.palettes[state.mode][state.selected][property] = Number(event.target.value);
+    const color = state.palettes[state.mode][state.selected];
+    const value = Number(event.target.value);
+    if (color[property] !== value) cancelPendingImport();
+    color[property] = value;
     $('hex-input').setCustomValidity('');
     $('hex-help').textContent = '';
     render();
@@ -149,6 +163,7 @@ for (const [id, property] of [['hue', 'h'], ['saturation', 's'], ['lightness', '
 }
 
 $('hex-input').addEventListener('input', () => {
+  cancelPendingImport();
   $('hex-input').setCustomValidity('');
   $('hex-help').textContent = '';
 });
@@ -164,7 +179,10 @@ $('hex-input').addEventListener('change', (event) => {
   }
   input.setCustomValidity('');
   $('hex-help').textContent = '';
-  state.palettes[state.mode][state.selected] = hexToOkhsl(value);
+  const color = hexToOkhsl(value);
+  const previous = state.palettes[state.mode][state.selected];
+  if (color.h !== previous.h || color.s !== previous.s || color.l !== previous.l) cancelPendingImport();
+  state.palettes[state.mode][state.selected] = color;
   render();
   save();
 });
@@ -185,6 +203,7 @@ $('optimize-button').addEventListener('click', () => {
     const before = clone(state.palettes[state.mode]);
     const result = optimizePalette(before, state.mode);
     if (!result || !result.colors || !ROLES.every(([role]) => validColor(result.colors[role])) || !Array.isArray(result.warnings)) throw new Error('Invalid optimizer result');
+    cancelPendingImport();
     undo[state.mode] = clone(state.palettes[state.mode]);
     state.palettes[state.mode] = result.colors;
     const notice = $('optimizer-message');
@@ -199,6 +218,7 @@ $('optimize-button').addEventListener('click', () => {
 });
 $('undo-button').addEventListener('click', () => {
   if (!undo[state.mode]) return;
+  cancelPendingImport();
   state.palettes[state.mode] = undo[state.mode];
   undo[state.mode] = null;
   $('optimizer-message').textContent = 'Optimization undone. Your previous colors are restored.';
@@ -208,6 +228,7 @@ $('undo-button').addEventListener('click', () => {
 });
 $('reset-button').addEventListener('click', () => {
   if (!window.confirm('Reset both light and dark palettes to their starting colors? This cannot be undone.')) return;
+  cancelPendingImport();
   state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
   undo = { light: null, dark: null };
   $('optimizer-message').hidden = true;
@@ -254,6 +275,78 @@ function jsonExport() {
   const modes = Object.fromEntries(['light', 'dark'].map((mode) => [mode, Object.fromEntries(ROLES.map(([role]) => [role, { hex: okhslToHex(state.palettes[mode][role]), okhsl: state.palettes[mode][role] }]))]));
   return `${JSON.stringify({ name: 'Tone palette', colorSpace: 'OKHSL', modes }, null, 2)}\n`;
 }
+function parsePaletteImport(content) {
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    throw new Error('The selected file is not valid JSON.');
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data) || data.colorSpace !== 'OKHSL' || !data.modes || typeof data.modes !== 'object' || Array.isArray(data.modes)) {
+    throw new Error('Expected a Tone JSON export with OKHSL light and dark modes.');
+  }
+  const palettes = {};
+  for (const mode of ['light', 'dark']) {
+    const source = data.modes[mode];
+    if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error(`Missing ${mode} mode.`);
+    const colors = {};
+    for (const [role] of ROLES) {
+      const entry = source[role];
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry) || typeof entry.hex !== 'string' || !/^#[\da-f]{6}$/i.test(entry.hex)) {
+        throw new Error(`${mode} mode is missing a valid ${role} color.`);
+      }
+      if (!validColor(entry.okhsl)) throw new Error(`${mode} mode ${role} needs finite OKHSL values: hue 0–360, saturation and lightness 0–100.`);
+      const { h, s, l } = entry.okhsl;
+      colors[role] = { h, s, l };
+    }
+    palettes[mode] = colors;
+  }
+  return palettes;
+}
+
+$('import-button').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  // Clear immediately so choosing the same file again triggers another change.
+  event.target.value = '';
+  if (!file) return;
+  const request = ++latestImport;
+  importPending = true;
+  const message = $('import-message');
+  message.textContent = 'Reading JSON palette…';
+  message.hidden = false;
+  let content;
+  try {
+    content = await file.text();
+  } catch {
+    if (request !== latestImport) return;
+    importPending = false;
+    message.textContent = 'Could not read that file. Please choose it again. Your colors have not been changed.';
+    message.hidden = false;
+    return;
+  }
+  // A slower earlier file must not overwrite a later selection or edit.
+  if (request !== latestImport) return;
+  importPending = false;
+  let palettes;
+  try {
+    palettes = parsePaletteImport(content);
+  } catch (error) {
+    message.textContent = `${error.message} Your colors have not been changed.`;
+    message.hidden = false;
+    return;
+  }
+  state.palettes = palettes;
+  undo = { light: null, dark: null };
+  $('optimizer-message').hidden = true;
+  $('hex-input').setCustomValidity('');
+  $('hex-help').textContent = '';
+  render();
+  save();
+  message.textContent = 'Imported both light and dark palettes. You can continue editing.';
+  message.hidden = false;
+});
+
 function download(filename, content, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const link = document.createElement('a');

@@ -11,10 +11,11 @@
   <header class="topbar">
     <a class="brand" href="#top" aria-label="Tone, palette studio home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>tone<span class="brand-period">.</span></span></a>
     <div class="topbar-center">A LITTLE STUDIO FOR COLOR <span>✳</span></div>
-    <div class="top-actions"><button class="button button-quiet" id="reset-button" type="button">Reset</button><div class="export-wrap"><button class="button button-dark" id="export-toggle" type="button" aria-expanded="false" aria-controls="export-menu">Export palette <span aria-hidden="true">↗</span></button><div class="export-menu" id="export-menu" hidden><p>TAKE YOUR COLORS WITH YOU</p><button type="button" id="copy-css">Copy CSS variables <span>↗</span></button><button type="button" id="download-css">Download CSS <span>↓</span></button><button type="button" id="download-json">Download JSON <span>↓</span></button></div></div></div>
+    <div class="top-actions"><button class="button button-quiet" id="reset-button" type="button">Reset</button><button class="button button-import" id="import-button" type="button" aria-describedby="import-help">Import JSON <span id="import-help">Replaces both modes</span></button><input id="import-file" type="file" accept=".json,application/json" tabindex="-1" hidden><div class="export-wrap"><button class="button button-dark" id="export-toggle" type="button" aria-expanded="false" aria-controls="export-menu">Export palette <span aria-hidden="true">↗</span></button><div class="export-menu" id="export-menu" hidden><p>TAKE YOUR COLORS WITH YOU</p><button type="button" id="copy-css">Copy CSS variables <span>↗</span></button><button type="button" id="download-css">Download CSS <span>↓</span></button><button type="button" id="download-json">Download JSON <span>↓</span></button></div></div></div>
   </header>
 
   <main id="top" class="page">
+    <div class="notice import-message" id="import-message" role="status" aria-live="polite" hidden></div>
     <div class="intro">
       <div><div class="eyebrow"><span class="small-dot"></span> YOUR COLOR WORKSPACE <span class="eyebrow-divider">/</span> OKHSL</div><h1>A little more <em>color.</em></h1><p>Build a thoughtful palette, one color at a time.</p></div>
       <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div>
