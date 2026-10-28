@@ -1,5 +1,6 @@
 import { okhslToHex, hexToOkhsl, contrastRatio } from './color.js';
 import { optimizePalette } from './optimize.js';
+import { generateOppositePalette } from './generate.js';
 
 const BASE = [
   ['bg', 'Background'], ['bg-2', 'Background 2'], ['ui', 'Interface'], ['ui-2', 'Interface 2'],
@@ -30,6 +31,8 @@ const validColor = (color) => color && typeof color === 'object' && Number.isFin
 const validPalettes = (palettes) => palettes && ['light', 'dark'].every((mode) => palettes[mode] && ROLES.every(([role]) => validColor(palettes[mode][role])));
 let state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
 let undo = { light: null, dark: null };
+let generationUndo = { light: null, dark: null };
+let generationNotes = { light: null, dark: null };
 let latestImport = 0;
 let importPending = false;
 let persistenceWarning = false;
@@ -128,6 +131,14 @@ function render() {
   $('mode-light').setAttribute('aria-pressed', String(state.mode === 'light'));
   $('mode-dark').setAttribute('aria-pressed', String(state.mode === 'dark'));
   $('palette-description').textContent = `${state.mode === 'light' ? 'Light' : 'Dark'} mode · 16 colors`;
+  const destination = state.mode === 'light' ? 'dark' : 'light';
+  $('generate-button').textContent = `Generate ${destination} from ${state.mode}`;
+  $('generate-help').textContent = `Generate ${destination} from the current ${state.mode} palette. This replaces the ${destination} palette.`;
+  $('undo-generation-button').disabled = !generationUndo[state.mode];
+  const note = generationNotes[state.mode];
+  const generationMessage = $('generation-message');
+  if (note !== null && generationMessage.textContent !== note) generationMessage.textContent = note;
+  generationMessage.hidden = note === null;
   $('preview-mode').textContent = `${state.mode.toUpperCase()} MODE PREVIEW`;
   $('selected-sample').style.backgroundColor = currentHex;
   $('selected-sample').style.color = contrastRatio(currentHex, '#ffffff') >= 3 ? '#ffffffb0' : '#29282280';
@@ -198,6 +209,57 @@ for (const mode of ['light', 'dark']) {
   });
 }
 
+$('generate-button').addEventListener('click', () => {
+  const sourceMode = state.mode;
+  const notice = $('generation-message');
+  try {
+    const result = generateOppositePalette(state.palettes[sourceMode], sourceMode);
+    if (!result || !['light', 'dark'].includes(result.mode) || !result.colors || !ROLES.every(([role]) => validColor(result.colors[role])) || !Array.isArray(result.warnings)) throw new Error('Invalid generated palette');
+    cancelPendingImport();
+    generationUndo[result.mode] = {
+      colors: clone(state.palettes[result.mode]),
+      optimizationUndo: undo[result.mode] ? clone(undo[result.mode]) : null,
+      notes: generationNotes[result.mode]
+    };
+    // The prior optimization snapshot belongs to the replaced palette. Keep it
+    // with the generation snapshot, but don't expose it for the new palette.
+    undo[result.mode] = null;
+    state.palettes[result.mode] = result.colors;
+    state.mode = result.mode;
+    $('optimizer-message').hidden = true;
+    $('hex-input').setCustomValidity('');
+    $('hex-help').textContent = '';
+    generationNotes[result.mode] = result.warnings.length
+      ? `Generated ${result.mode} from ${sourceMode}. Generation-time notes (may not reflect later edits or optimization):\n${result.warnings.join('\n')}`
+      : `Generated ${result.mode} from ${sourceMode}. No generation-time notes; later edits or optimization can change contrast. Review the preview and your actual usage.`;
+    render();
+    save();
+  } catch (error) {
+    notice.textContent = `Could not generate the matching palette: ${error.message}. Your colors have not been changed.`;
+    notice.hidden = false;
+  }
+});
+
+$('undo-generation-button').addEventListener('click', () => {
+  if (!generationUndo[state.mode]) return;
+  cancelPendingImport();
+  const snapshot = generationUndo[state.mode];
+  state.palettes[state.mode] = snapshot.colors;
+  generationUndo[state.mode] = null;
+  // Discard optimizations of the generated palette, then restore the undo
+  // snapshot that belonged to the destination before it was replaced.
+  undo[state.mode] = snapshot.optimizationUndo;
+  generationNotes[state.mode] = snapshot.notes;
+  $('optimizer-message').hidden = true;
+  $('hex-input').setCustomValidity('');
+  $('hex-help').textContent = '';
+  render();
+  save();
+  const notice = $('generation-message');
+  notice.textContent = `Generation undone. The previous ${state.mode} palette is restored.${snapshot.notes ? `\n${snapshot.notes}` : ''}`;
+  notice.hidden = false;
+});
+
 $('optimize-button').addEventListener('click', () => {
   try {
     const before = clone(state.palettes[state.mode]);
@@ -231,7 +293,10 @@ $('reset-button').addEventListener('click', () => {
   cancelPendingImport();
   state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
   undo = { light: null, dark: null };
+  generationUndo = { light: null, dark: null };
+  generationNotes = { light: null, dark: null };
   $('optimizer-message').hidden = true;
+  $('generation-message').hidden = true;
   $('hex-input').setCustomValidity('');
   $('hex-help').textContent = '';
   render();
@@ -338,7 +403,10 @@ $('import-file').addEventListener('change', async (event) => {
   }
   state.palettes = palettes;
   undo = { light: null, dark: null };
+  generationUndo = { light: null, dark: null };
+  generationNotes = { light: null, dark: null };
   $('optimizer-message').hidden = true;
+  $('generation-message').hidden = true;
   $('hex-input').setCustomValidity('');
   $('hex-help').textContent = '';
   render();

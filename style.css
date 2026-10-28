@@ -99,3 +99,11 @@
   .top-actions{min-width:0;flex-wrap:wrap;justify-content:flex-end;gap:4px}
 }
 @media(max-width:250px){.top-actions{width:100%;justify-content:flex-start}}
+
+/* Derive the other mode without losing the previous destination palette. */
+.generate-card{margin:0 0 22px;padding:14px;border-radius:7px;background:#f6f3e9}
+.generate-card>strong{font-size:11px}
+.generate-card>p{font-size:10px;color:#716d62;line-height:1.5;margin-top:5px}
+.generate-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.generate-actions .button{white-space:normal;text-align:left;max-width:100%}
+.generate-actions .button:disabled{opacity:1;color:#77756b;background:#f0eee6;border-color:#e3dfd2}

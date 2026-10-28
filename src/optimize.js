@@ -42,15 +42,38 @@ function candidateAt(source, lightness, sourceChroma) {
  * selected color is kept and the limiting surface is reported in warnings.
  */
 export function optimizePalette(colors, mode) {
+  return optimize(colors, mode, null);
+}
+
+/** Optimize reflected colors using the original mode as the chroma anchor. */
+export function optimizeGeneratedPalette(colors, mode, sourceColors) {
+  if (!sourceColors || typeof sourceColors !== 'object') throw new TypeError('Expected the source palette.');
+  return optimize(colors, mode, sourceColors);
+}
+
+function optimize(colors, mode, sourceColors) {
   if (mode !== 'light' && mode !== 'dark') throw new TypeError('Mode must be light or dark.');
   if (!colors || typeof colors !== 'object') throw new TypeError('Expected a palette.');
   const result = {};
+  const anchors = sourceColors ? {} : null;
   for (const role of roles) {
     const color = colors[role];
     if (!color || !Number.isFinite(color.h) || !Number.isFinite(color.s) || !Number.isFinite(color.l) || color.s < 0 || color.s > 100 || color.l < 0 || color.l > 100) {
       throw new TypeError(`Invalid OKHSL color for ${role}.`);
     }
-    result[role] = { h: color.h, s: color.s, l: color.l };
+    let selected = { h: color.h, s: color.s, l: color.l };
+    if (anchors) {
+      const original = sourceColors[role];
+      if (!original || !Number.isFinite(original.h) || !Number.isFinite(original.s) || !Number.isFinite(original.l) || original.s < 0 || original.s > 100 || original.l < 0 || original.l > 100) {
+        throw new TypeError(`Invalid source OKHSL color for ${role}.`);
+      }
+      const chroma = okhslChroma(original);
+      anchors[role] = { chroma, saturation: original.s };
+      // A reflected seed can itself be more chromatic than the original. Cap
+      // only when necessary; keep invisible endpoint saturation otherwise.
+      if (okhslChroma(selected) > chroma + 1e-8) selected = candidateAt(selected, selected.l, chroma);
+    }
+    result[role] = selected;
   }
   const warnings = [];
   const endpoint = mode === 'light' ? 0 : 100;
@@ -71,8 +94,12 @@ export function optimizePalette(colors, mode) {
       return Math.min(...scores(color));
     }
     if (score(source) >= target) return;
-    const sourceChroma = okhslChroma(source);
-    const extreme = candidateAt(source, endpoint, sourceChroma);
+    // For a generated mode, the reflected seed's gamut can be much smaller
+    // than the original's (notably bright yellow and saturated blue). Use the
+    // original color's chroma ceiling and saturation as the search anchor.
+    const sourceChroma = anchors ? anchors[role].chroma : okhslChroma(source);
+    const basis = anchors ? { ...source, s: anchors[role].saturation } : source;
+    const extreme = candidateAt(basis, endpoint, sourceChroma);
     // The endpoint is always on the required side of every sRGB background.
     // Use actual WCAG ratios here, not the wrong-direction sentinel in scores().
     const extremeHex = okhslToHex(extreme);
@@ -91,10 +118,10 @@ export function optimizePalette(colors, mode) {
     let from = source.l, to = endpoint;
     for (let i = 0; i < 25; i++) {
       const mid = (from + to) / 2;
-      if (score(candidateAt(source, mid, sourceChroma)) >= target) to = mid;
+      if (score(candidateAt(basis, mid, sourceChroma)) >= target) to = mid;
       else from = mid;
     }
-    result[role] = candidateAt(source, to, sourceChroma);
+    result[role] = candidateAt(basis, to, sourceChroma);
   }
 
   for (const [role, target] of Object.entries(surfaceTargets)) solve(role, target, ['bg']);

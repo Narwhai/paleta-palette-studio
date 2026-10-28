@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { okhslToHex, hexToOkhsl, contrastRatio } from '../src/color.js';
+import { generateOppositePalette } from '../src/generate.js';
 
 class Element {
   constructor(tag = 'div') {
@@ -53,6 +54,10 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /id="import-help">Replaces both modes/);
   assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
   assert.match(html, /id="import-message"[^>]*role="status"/);
+  assert.match(html, /id="generate-button"[^>]*aria-describedby="generate-help"/);
+  assert.match(html, /id="undo-generation-button"[^>]*aria-describedby="undo-generation-help"[^>]*disabled/);
+  assert.match(html, /id="generation-message"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /Undo restores this mode's colors and optimization undo from before generation, removing later edits/);
   assert.match(html, /Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4\.5:1/);
   assert.match(html, /Text 3 at 3:1 and each accent at 4\.5:1 are checked against BG and BG 2/);
   assert.match(html, /colors no lighter than their checked backgrounds in light mode, and no darker in dark mode/);
@@ -459,6 +464,194 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.deepEqual(saved().palettes.light.tx, infeasible.light.tx, 'infeasible text keeps its selected color');
     assert.match(byId('optimizer-message').textContent, /tx:.*ui.*best .*kept the selected color/i, 'the UI reports the limiting surface and retained selection');
     assertPreviewsMatchPalette('light');
+
+    // Derivation preserves the source, replaces only the intended destination,
+    // clears its stale optimization history, and allows exact independent undo.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-dark').click();
+    const beforeDarkOptimization = structuredClone(saved().palettes.dark);
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false, 'the old destination has optimization history');
+    byId('mode-light').click();
+    byId('accent-swatches').children[5].click();
+    slider.value = '147';
+    slider.dispatch('input');
+    const sourceBeforeGeneration = structuredClone(saved().palettes.light);
+    const destinationBeforeGeneration = structuredClone(saved().palettes.dark);
+    const expectedDark = generateOppositePalette(sourceBeforeGeneration, 'light');
+    assert.equal(byId('generate-button').textContent, 'Generate dark from light');
+    assert.match(byId('generate-help').textContent, /replaces the dark palette/i);
+    assert.equal(byId('undo-generation-button').disabled, true);
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'dark', 'generated mode is immediately shown');
+    assert.deepEqual(saved().palettes.light, sourceBeforeGeneration, 'the source is unchanged');
+    assert.deepEqual(saved().palettes.dark, expectedDark.colors, 'every target role comes from the edited source');
+    assert.equal(byId('generate-button').textContent, 'Generate light from dark');
+    assert.match(byId('generate-help').textContent, /replaces the light palette/i);
+    assert.equal(byId('undo-button').disabled, true, 'generation clears the replaced target optimization history');
+    assert.equal(byId('undo-generation-button').disabled, false);
+    assertPreviewsMatchPalette('dark');
+    byId('download-json').click();
+    const generatedExport = JSON.parse(await blobs.at(-1).text());
+    for (const [role, color] of Object.entries(expectedDark.colors)) assert.deepEqual(generatedExport.modes.dark[role].okhsl, color, `${role} exported from generated palette`);
+    slider.value = '211';
+    slider.dispatch('input');
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false);
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.dark, destinationBeforeGeneration, 'generation undo discards later target edits and optimizations');
+    assert.deepEqual(saved().palettes.light, sourceBeforeGeneration);
+    assert.equal(byId('undo-button').disabled, false, 'undoing generation restores the original destination optimization undo');
+    assert.equal(byId('undo-generation-button').disabled, true);
+    assertPreviewsMatchPalette('dark');
+    byId('undo-button').click();
+    assert.deepEqual(saved().palettes.dark, beforeDarkOptimization, 'restored optimization undo recovers the earlier dark palette');
+    assert.deepEqual(saved().palettes.light, sourceBeforeGeneration, 'undo remains specific to its mode');
+    assert.equal(byId('undo-button').disabled, true);
+
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    byId('generate-button').click();
+    const derivedDark = structuredClone(saved().palettes.dark);
+    assert.equal(saved().mode, 'dark');
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'light');
+    assert.deepEqual(saved().palettes.dark, derivedDark, 'dark source is not changed by light generation');
+    assert.deepEqual(saved().palettes.light, generateOppositePalette(derivedDark, 'dark').colors);
+    assert.equal(byId('undo-generation-button').disabled, false);
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.light, reported.light, 'light destination restores its own previous palette');
+    byId('mode-dark').click();
+    assert.equal(byId('undo-generation-button').disabled, false, 'dark generation history remains separate');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, reported, 'each mode can undo its own generation independently');
+
+    // A replacement invalidates pending imports; invalid imports don't discard
+    // generation undo, while accepted import and reset clear both histories.
+    byId('mode-light').click();
+    const generationRead = deferredImport();
+    byId('generate-button').click();
+    const afterGenerationRead = structuredClone(saved());
+    await finishCancelled(generationRead, afterGenerationRead, 'generation');
+    assert.equal(byId('undo-generation-button').disabled, false);
+    const notesBeforeInvalidImport = byId('generation-message').textContent;
+    await importFile({ text: async () => '{broken' });
+    assert.equal(byId('undo-generation-button').disabled, false, 'an invalid import keeps generation undo');
+    assert.equal(byId('generation-message').textContent, notesBeforeInvalidImport, 'an invalid import keeps generation notes');
+    const undoGenerationRead = deferredImport();
+    byId('undo-generation-button').click();
+    const afterUndoGenerationRead = structuredClone(saved());
+    await finishCancelled(undoGenerationRead, afterUndoGenerationRead, 'generation undo');
+    byId('mode-light').click();
+    byId('generate-button').click();
+    assert.equal(byId('undo-generation-button').disabled, false);
+    await importFile(jsonFile(makeExport(reported)));
+    assert.equal(byId('undo-generation-button').disabled, true, 'a successful import clears dark generation undo');
+    assert.equal(byId('generation-message').hidden, true, 'a successful import clears dark generation notes');
+    byId('mode-light').click();
+    assert.equal(byId('undo-generation-button').disabled, true, 'a successful import also clears light generation undo');
+    assert.equal(byId('generation-message').hidden, true, 'a successful import also clears light generation notes');
+    byId('generate-button').click();
+    assert.equal(byId('undo-generation-button').disabled, false);
+    byId('reset-button').click();
+    assert.equal(byId('undo-generation-button').disabled, true, 'reset clears light generation undo');
+    assert.equal(byId('generation-message').hidden, true, 'reset clears light generation notes');
+    byId('mode-dark').click();
+    assert.equal(byId('undo-generation-button').disabled, true, 'reset also clears dark generation undo');
+    assert.equal(byId('generation-message').hidden, true, 'reset also clears dark generation notes');
+
+    const generationInfeasible = structuredClone(reported);
+    generationInfeasible.light.bg = { h: 0, s: 0, l: 0 };
+    await importFile(jsonFile(makeExport(generationInfeasible)));
+    byId('mode-light').click();
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'dark');
+    assert.match(byId('generation-message').textContent, /not achievable.*kept the selected color/i, 'generation reports genuine optimizer infeasibility');
+    assertPreviewsMatchPalette('dark');
+
+    // Generating light must preserve light's pre-generation optimization undo,
+    // even if the generated light palette is edited and optimized afterwards.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    const lightBeforeOptimization = structuredClone(saved().palettes.light);
+    byId('optimize-button').click();
+    const lightAfterOptimization = structuredClone(saved().palettes.light);
+    assert.equal(byId('undo-button').disabled, false);
+    byId('mode-dark').click();
+    const darkSource = structuredClone(saved().palettes.dark);
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'light');
+    assert.equal(byId('undo-button').disabled, true, 'prior light undo is hidden while generated colors are active');
+    byId('accent-swatches').children[5].click();
+    slider.value = '177';
+    slider.dispatch('input');
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false, 'the generated palette can have its own later optimization');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.light, lightAfterOptimization, 'undo generation restores the previously optimized light colors');
+    assert.deepEqual(saved().palettes.dark, darkSource, 'dark source remains unchanged');
+    assert.equal(byId('undo-button').disabled, false, 'the pre-generation light optimization undo is restored');
+    byId('undo-button').click();
+    assert.deepEqual(saved().palettes.light, lightBeforeOptimization, 'restored light optimization undo recovers its earlier palette');
+    assert.equal(byId('undo-button').disabled, true);
+
+    // Notes belong to the generated palette, survive mode changes and edits as
+    // explicitly labeled historical results, and are restored with that palette.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'dark');
+    const firstNotes = byId('generation-message').textContent;
+    assert.equal(byId('generation-message').hidden, false);
+    assert.match(firstNotes, /Generation-time notes \(may not reflect later edits or optimization\)/);
+    assert.match(firstNotes, /ui-2 and ui-3.*reversed/);
+    byId('mode-light').click();
+    assert.equal(byId('generation-message').hidden, true, 'notes do not leak to the other mode');
+    byId('mode-dark').click();
+    assert.equal(byId('generation-message').hidden, false);
+    assert.equal(byId('generation-message').textContent, firstNotes, 'generation notes survive switching away and back');
+    byId('accent-swatches').children[0].click();
+    slider.value = '86';
+    slider.dispatch('input');
+    assert.equal(byId('generation-message').textContent, firstNotes, 'retained notes remain explicitly labeled as generation-time after edits');
+    const firstBeforeOptimization = structuredClone(saved().palettes.dark);
+    byId('optimize-button').click();
+    const firstAfterOptimization = structuredClone(saved().palettes.dark);
+    assert.equal(byId('generation-message').textContent, firstNotes, 'later optimization does not mislabel historical notes as current results');
+    assert.equal(byId('undo-button').disabled, false);
+    byId('mode-light').click();
+    byId('base-swatches').children[3].click();
+    byId('lightness').value = '70';
+    byId('lightness').dispatch('input');
+    byId('generate-button').click();
+    assert.equal(saved().mode, 'dark');
+    const secondNotes = byId('generation-message').textContent;
+    assert.notEqual(secondNotes, firstNotes, 'repeated generation records notes from its new source');
+    assert.equal(byId('undo-button').disabled, true, 'the earlier generated palette undo is unavailable while its replacement is active');
+    byId('optimize-button').click();
+    assert.equal(byId('undo-button').disabled, false);
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.dark, firstAfterOptimization, 'undo repeated generation restores the prior generated palette');
+    assert.match(byId('generation-message').textContent, /Generation undone/);
+    assert.ok(byId('generation-message').textContent.includes(firstNotes), 'undo restores notes belonging to the restored palette');
+    assert.equal(byId('generation-message').hidden, false);
+    assert.equal(byId('undo-button').disabled, false, 'undo restores the previous palette optimization snapshot, not the later one');
+    byId('undo-button').click();
+    assert.deepEqual(saved().palettes.dark, firstBeforeOptimization, 'restored undo returns to the state before the first generated palette optimization');
+    assert.equal(byId('generation-message').textContent, firstNotes, 'generation-time notes remain explicitly historical after undoing optimization');
+    byId('mode-light').click();
+    assert.equal(byId('generation-message').hidden, true);
+    byId('mode-dark').click();
+    assert.equal(byId('generation-message').textContent, firstNotes);
+    await importFile(jsonFile(makeExport(reported)));
+    assert.equal(byId('generation-message').hidden, true, 'accepted import clears retained generation notes');
+    byId('mode-light').click();
+    byId('generate-button').click();
+    assert.equal(byId('generation-message').hidden, false);
+    byId('reset-button').click();
+    assert.equal(byId('generation-message').hidden, true, 'reset clears retained generation notes');
+    byId('mode-dark').click();
+    assert.equal(byId('generation-message').hidden, true, 'reset clears notes in the other mode too');
   } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

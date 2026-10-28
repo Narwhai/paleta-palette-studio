@@ -26,6 +26,13 @@
       <section class="palette-panel panel" aria-labelledby="palette-title">
         <div class="section-heading palette-heading"><div><span class="overline">01 / YOUR PALETTE</span><h2 id="palette-title">The colors</h2></div><div class="mode-switch" role="group" aria-label="Editing mode"><button type="button" id="mode-light" aria-pressed="true">☼ <span>Light</span></button><button type="button" id="mode-dark" aria-pressed="false">☾ <span>Dark</span></button></div></div>
         <div class="palette-intro"><span id="palette-description">Light mode · 16 colors</span><span>Select a swatch to edit <span aria-hidden="true">↗</span></span></div>
+        <div class="generate-card">
+          <strong>Make the matching mode</strong>
+          <p id="generate-help">Generate dark from the current light palette. This replaces the dark palette.</p>
+          <div class="generate-actions"><button type="button" id="generate-button" class="button button-outline" aria-describedby="generate-help">Generate dark from light</button><button type="button" id="undo-generation-button" class="button button-outline" aria-describedby="undo-generation-help" disabled>↶ Undo generation</button></div>
+          <p id="undo-generation-help">Undo restores this mode's colors and optimization undo from before generation, removing later edits. Undo is cleared on import, reset, or reload.</p>
+          <div class="notice" id="generation-message" role="status" aria-live="polite" hidden></div>
+        </div>
         <div class="swatch-section"><div class="group-heading"><span>BASE COLORS</span><span>01 — 08</span></div><div class="swatch-grid" id="base-swatches"></div></div>
         <div class="swatch-section accent-section"><div class="group-heading"><span>ACCENT COLORS</span><span>09 — 16</span></div><div class="swatch-grid" id="accent-swatches"></div></div>
         <div class="palette-footer"><span class="sparkle">✳</span><p>Good colors play well together.<br><span>Fine-tune each one to make it yours.</span></p></div>
