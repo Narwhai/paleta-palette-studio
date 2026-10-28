@@ -20,6 +20,7 @@
       <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div>
     </div>
 
+    <div class="studio-layout">
     <div class="workspace">
       <section class="palette-panel panel" aria-labelledby="palette-title">
         <div class="section-heading palette-heading"><div><span class="overline">01 / YOUR PALETTE</span><h2 id="palette-title">The colors</h2></div><div class="mode-switch" role="group" aria-label="Editing mode"><button type="button" id="mode-light" aria-pressed="true">☼ <span>Light</span></button><button type="button" id="mode-dark" aria-pressed="false">☾ <span>Dark</span></button></div></div>
@@ -39,19 +40,27 @@
           <div class="slider-row"><div class="slider-label"><label for="lightness">Lightness <span>/ the brightness</span></label><output id="lightness-value" for="lightness"></output></div><input id="lightness" type="range" min="0" max="100" step="1"><div class="slider-ends"><span>Dark</span><span>Light</span></div></div>
         </div>
         <div class="contrast-card"><div><span class="overline">CONTRAST CHECK</span><strong id="contrast-title">Against background</strong><p>Selected color against this mode's surfaces.</p></div><div class="contrast-values"><div><span>BG</span><strong id="contrast-bg">—</strong></div><div><span>BG 2</span><strong id="contrast-bg2">—</strong></div></div></div>
-        <div class="optimize-card"><div class="optimize-icon" aria-hidden="true">✧</div><div class="optimize-copy"><strong>A little help with contrast</strong><p>Adjust this mode's colors using role-based WCAG contrast targets. You can keep refining after.</p></div><button type="button" id="optimize-button" class="button button-outline">Optimize <span aria-hidden="true">↗</span></button></div>
-        <div class="optimizer-bottom"><button type="button" id="undo-button" class="text-button" disabled>↶ Undo optimization</button><span>AN APPROXIMATION, NOT A GUARANTEE</span></div>
+        <div class="optimize-card"><div class="optimize-icon" aria-hidden="true">✧</div><div class="optimize-copy"><strong>A little help with contrast</strong><p>Adjust this mode's colors using role-based WCAG contrast targets. You can keep refining after.</p><p id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits.</p></div><div class="optimize-actions"><button type="button" id="optimize-button" class="button button-outline">Optimize <span aria-hidden="true">↗</span></button><button type="button" id="undo-button" class="button button-outline" aria-describedby="undo-help" disabled>↶ Undo optimization</button></div></div>
+        <div class="optimizer-bottom"><span>AN APPROXIMATION, NOT A GUARANTEE</span></div>
         <details class="optimizer-details"><summary>How optimization works</summary><p>First, surface roles are separated from the background: BG 2 at 1.04:1, UI at 1.08:1, UI 2 at 1.14:1, and UI 3 at 1.22:1. Then text and accents are checked against all five surfaces: text at 7:1, text 2 at 4.5:1, text 3 at 3:1, and each accent at 4.5:1. Infeasible targets are reported. This WCAG-based approach approximates the article’s method, not its exact perceptual algorithm. Always check your actual usage.</p></details>
         <div class="notice" id="optimizer-message" role="status" hidden></div>
       </section>
     </div>
 
-    <section class="preview-section" aria-labelledby="preview-title"><div class="preview-heading"><div><span class="overline">03 / SEE IT IN ACTION</span><h2 id="preview-title">The bigger picture<span>.</span></h2><p>Your palette, at work in a little imaginary space.</p></div><div class="preview-mode-label"><span class="small-dot"></span><span id="preview-mode">LIGHT MODE PREVIEW</span></div></div>
+    <aside class="preview-pane" id="preview-pane" aria-label="Live previews" data-expanded="false">
+      <div class="preview-pane-bar">
+        <div class="preview-pane-label"><span class="small-dot"></span><span>LIVE PREVIEW</span></div>
+        <div class="mini-preview" id="mini-preview" aria-label="Live palette sample"><strong>Aa</strong><span>Color in context</span><span class="mini-colors" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <button class="preview-toggle" id="preview-toggle" type="button" aria-expanded="false" aria-controls="preview-scroll">Expand preview <span aria-hidden="true">↑</span></button>
+        <nav class="preview-jumps" aria-label="Jump to preview"><button type="button" id="jump-app">App preview</button><button type="button" id="jump-code">Code preview</button></nav>
+      </div>
+      <div class="preview-scroll" id="preview-scroll" role="region" aria-label="Live previews" tabindex="0">
+    <section class="preview-section" id="app-preview-section" aria-labelledby="preview-title" tabindex="-1"><div class="preview-heading"><div><span class="overline">03 / SEE IT IN ACTION</span><h2 id="preview-title">The bigger picture<span>.</span></h2><p>Your palette, at work in a little imaginary space.</p></div><div class="preview-mode-label"><span class="small-dot"></span><span id="preview-mode">LIGHT MODE PREVIEW</span></div></div>
       <div class="preview-frame" id="theme-preview"><div class="preview-app"><aside class="preview-sidebar"><div class="preview-app-brand"><span class="preview-brand-icon">✳</span> atelier <span class="preview-more">•••</span></div><div class="preview-nav-label">WORKSPACE</div><div class="preview-nav active">◫ <span>Overview</span><span class="preview-nav-arrow">↗</span></div><div class="preview-nav">▦ <span>Projects</span></div><div class="preview-nav">▤ <span>Notes</span></div><div class="preview-nav-label preview-space">YOUR COLLECTION</div><div class="preview-nav"><i class="preview-nav-dot red"></i> <span>Inspiration</span></div><div class="preview-nav"><i class="preview-nav-dot green"></i> <span>In progress</span></div><div class="preview-nav"><i class="preview-nav-dot blue"></i> <span>Archive</span></div><div class="preview-user"><span class="preview-avatar">S</span><span>Studio space<small>Personal workspace</small></span><span class="preview-user-more">⌄</span></div></aside>
         <div class="preview-content"><div class="preview-topline"><span>Workspace <span class="preview-breadcrumb">/</span> Overview</span><span>✧ &nbsp; ◌ &nbsp; <b>S</b></span></div><div class="preview-main"><div class="preview-welcome"><div><span class="preview-kicker">YOUR CREATIVE SPACE <span>✳</span></span><h3>Ideas live here<span>.</span></h3><p>A little room to make something wonderful.</p></div><span class="preview-new">＋ &nbsp; New project</span></div><div class="preview-cards"><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon orange">◈</span><span>↗</span></div><small>THE BIG PICTURE</small><strong>Collect the good stuff.</strong><p>All the things worth keeping, in one place.</p><div class="preview-tags"><span class="tag-orange">Ideas</span><span class="tag-green">In progress</span></div></div><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon purple">✳</span><span>↗</span></div><small>THE LITTLE DETAILS</small><strong>Make room to explore.</strong><p>A thoughtful space for your next great idea.</p><div class="preview-tags"><span class="tag-blue">Notes</span><span class="tag-purple">Personal</span></div></div></div><div class="preview-bottom"><span>● &nbsp; Everything is looking good</span><span>Made with intention ✳</span></div></div></div></div></div>
     </section>
 
-    <section class="preview-section syntax-section" aria-labelledby="syntax-title">
+    <section class="preview-section syntax-section" id="code-preview-section" aria-labelledby="syntax-title" tabindex="-1">
       <div class="preview-heading"><div><span class="overline">04 / IN THE DETAILS</span><h2 id="syntax-title">A little code<span>.</span></h2><p>See how your colors read between the lines.</p></div><div class="preview-mode-label"><span class="small-dot"></span> SYNTAX PREVIEW</div></div>
       <div class="syntax-preview" id="code-preview">
         <div class="syntax-toolbar"><div class="syntax-window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="syntax-tab"><span aria-hidden="true">◇</span> palette.ts</span><span class="syntax-language">TYPESCRIPT <span aria-hidden="true">✳</span></span></div>
@@ -90,6 +99,9 @@
         </div>
       </div>
     </section>
+      </div>
+    </aside>
+    </div>
     <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a href="https://earendil.com/posts/system-theme/" target="_blank" rel="noreferrer">SYSTEM THEME ↗</a> &amp; <a href="https://stephango.com/flexoki" target="_blank" rel="noreferrer">FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

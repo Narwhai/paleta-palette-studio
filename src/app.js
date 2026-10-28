@@ -104,7 +104,7 @@ function render() {
   const colors = state.palettes[state.mode];
   const color = colors[state.selected];
   const currentHex = okhslToHex(color);
-  const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview')];
+  const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview'), $('mini-preview')];
   for (const [role, name] of ROLES) {
     const item = buttons.get(role);
     const hex = okhslToHex(colors[role]);
@@ -218,6 +218,34 @@ $('reset-button').addEventListener('click', () => {
   toast('Both palettes have been reset.');
 });
 
+// The small-screen preview uses the same colors and the same full previews; it
+// does not duplicate the editor state or the preview DOM.
+const previewPane = $('preview-pane');
+const previewToggle = $('preview-toggle');
+const previewScroll = $('preview-scroll');
+function setPreviewExpanded(expanded) {
+  previewPane.setAttribute('data-expanded', String(expanded));
+  previewToggle.setAttribute('aria-expanded', String(expanded));
+  previewToggle.textContent = expanded ? 'Collapse preview ↓' : 'Expand preview ↑';
+}
+previewToggle.addEventListener('click', () => {
+  setPreviewExpanded(previewToggle.getAttribute('aria-expanded') !== 'true');
+});
+// If keyboard focus moves back to the editor, don't leave it behind the
+// expanded mobile panel. Focus itself stays on the user's chosen control.
+document.addEventListener('focusin', (event) => {
+  if (previewToggle.getAttribute('aria-expanded') === 'true' && window.matchMedia('(max-width: 900px)').matches && !previewPane.contains(event.target)) {
+    setPreviewExpanded(false);
+  }
+});
+for (const [button, section] of [['jump-app', 'app-preview-section'], ['jump-code', 'code-preview-section']]) {
+  $(button).addEventListener('click', () => {
+    const target = $(section);
+    previewScroll.scrollTop += target.getBoundingClientRect().top - previewScroll.getBoundingClientRect().top;
+    target.focus({ preventScroll: true });
+  });
+}
+
 function cssExport() {
   const block = (mode, selector) => `${selector} {\n${ROLES.map(([role]) => `  --color-${role}: ${okhslToHex(state.palettes[mode][role])};`).join('\n')}\n}`;
   return `/* Generated with Tone. Set data-theme="dark" on your document to use the dark palette. */\n${block('light', ':root,\n[data-theme="light"]')}\n\n${block('dark', '[data-theme="dark"]')}\n`;
@@ -252,6 +280,9 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('export-menu').hidden) {
     closeExport();
     $('export-toggle').focus();
+  } else if (event.key === 'Escape' && previewToggle.getAttribute('aria-expanded') === 'true' && window.matchMedia('(max-width: 900px)').matches) {
+    setPreviewExpanded(false);
+    previewToggle.focus();
   }
 });
 $('copy-css').addEventListener('click', async () => {
