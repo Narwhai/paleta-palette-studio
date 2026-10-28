@@ -50,6 +50,46 @@
       <div class="preview-frame" id="theme-preview"><div class="preview-app"><aside class="preview-sidebar"><div class="preview-app-brand"><span class="preview-brand-icon">✳</span> atelier <span class="preview-more">•••</span></div><div class="preview-nav-label">WORKSPACE</div><div class="preview-nav active">◫ <span>Overview</span><span class="preview-nav-arrow">↗</span></div><div class="preview-nav">▦ <span>Projects</span></div><div class="preview-nav">▤ <span>Notes</span></div><div class="preview-nav-label preview-space">YOUR COLLECTION</div><div class="preview-nav"><i class="preview-nav-dot red"></i> <span>Inspiration</span></div><div class="preview-nav"><i class="preview-nav-dot green"></i> <span>In progress</span></div><div class="preview-nav"><i class="preview-nav-dot blue"></i> <span>Archive</span></div><div class="preview-user"><span class="preview-avatar">S</span><span>Studio space<small>Personal workspace</small></span><span class="preview-user-more">⌄</span></div></aside>
         <div class="preview-content"><div class="preview-topline"><span>Workspace <span class="preview-breadcrumb">/</span> Overview</span><span>✧ &nbsp; ◌ &nbsp; <b>S</b></span></div><div class="preview-main"><div class="preview-welcome"><div><span class="preview-kicker">YOUR CREATIVE SPACE <span>✳</span></span><h3>Ideas live here<span>.</span></h3><p>A little room to make something wonderful.</p></div><span class="preview-new">＋ &nbsp; New project</span></div><div class="preview-cards"><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon orange">◈</span><span>↗</span></div><small>THE BIG PICTURE</small><strong>Collect the good stuff.</strong><p>All the things worth keeping, in one place.</p><div class="preview-tags"><span class="tag-orange">Ideas</span><span class="tag-green">In progress</span></div></div><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon purple">✳</span><span>↗</span></div><small>THE LITTLE DETAILS</small><strong>Make room to explore.</strong><p>A thoughtful space for your next great idea.</p><div class="preview-tags"><span class="tag-blue">Notes</span><span class="tag-purple">Personal</span></div></div></div><div class="preview-bottom"><span>● &nbsp; Everything is looking good</span><span>Made with intention ✳</span></div></div></div></div></div>
     </section>
+
+    <section class="preview-section syntax-section" aria-labelledby="syntax-title">
+      <div class="preview-heading"><div><span class="overline">04 / IN THE DETAILS</span><h2 id="syntax-title">A little code<span>.</span></h2><p>See how your colors read between the lines.</p></div><div class="preview-mode-label"><span class="small-dot"></span> SYNTAX PREVIEW</div></div>
+      <div class="syntax-preview" id="code-preview">
+        <div class="syntax-toolbar"><div class="syntax-window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="syntax-tab"><span aria-hidden="true">◇</span> palette.ts</span><span class="syntax-language">TYPESCRIPT <span aria-hidden="true">✳</span></span></div>
+        <div class="syntax-body">
+          <div class="syntax-editor">
+            <pre class="syntax-gutter" aria-hidden="true">01
+02
+03
+04
+05
+06
+07
+08
+09
+10
+11
+12
+13
+14</pre>
+            <pre class="syntax-code" tabindex="0" role="region" aria-label="TypeScript syntax example; scroll horizontally for long lines"><code><span class="syntax-comment">// A little color goes a long way.</span>
+<span class="syntax-keyword">type</span> <span class="syntax-type">Palette</span> = {
+  <span class="syntax-property">name</span>: <span class="syntax-type">string</span>;
+  <span class="syntax-property">colors</span>: <span class="syntax-type">number</span>;
+  <span class="syntax-property">ready</span>: <span class="syntax-type">boolean</span>;
+};
+
+<span class="syntax-keyword">const</span> <span class="syntax-function">createPalette</span> = (<span class="syntax-property">name</span>: <span class="syntax-type">string</span>, <span class="syntax-property">colors</span>: <span class="syntax-type">number</span>): <span class="syntax-type">Palette</span> <span class="syntax-operator">=&gt;</span> ({
+  <span class="syntax-property">name</span>,
+  <span class="syntax-property">colors</span>,
+  <span class="syntax-property">ready</span>: <span class="syntax-constant">true</span>,
+});
+
+<span class="syntax-keyword">const</span> studio = <span class="syntax-function">createPalette</span>(<span class="syntax-string">"daylight"</span>, <span class="syntax-number">8</span>);</code></pre>
+          </div>
+          <aside class="syntax-legend" aria-label="Syntax token colors"><span class="syntax-legend-title">THE LITTLE DETAILS</span><strong>Color, in context.</strong><p>A small glimpse at how each accent works together.</p><div class="syntax-token-list"><span class="syntax-keyword"><i aria-hidden="true"></i>Keyword</span><span class="syntax-string"><i aria-hidden="true"></i>String</span><span class="syntax-function"><i aria-hidden="true"></i>Function</span><span class="syntax-type"><i aria-hidden="true"></i>Type</span><span class="syntax-property"><i aria-hidden="true"></i>Property</span><span class="syntax-number"><i aria-hidden="true"></i>Number</span><span class="syntax-constant"><i aria-hidden="true"></i>Constant</span><span class="syntax-operator"><i aria-hidden="true"></i>Operator</span></div><div class="syntax-legend-note"><span aria-hidden="true">✳</span> A palette for the details.</div></aside>
+        </div>
+      </div>
+    </section>
     <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a href="https://earendil.com/posts/system-theme/" target="_blank" rel="noreferrer">SYSTEM THEME ↗</a> &amp; <a href="https://stephango.com/flexoki" target="_blank" rel="noreferrer">FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
   </main>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

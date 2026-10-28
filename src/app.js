@@ -104,6 +104,7 @@ function render() {
   const colors = state.palettes[state.mode];
   const color = colors[state.selected];
   const currentHex = okhslToHex(color);
+  const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview')];
   for (const [role, name] of ROLES) {
     const item = buttons.get(role);
     const hex = okhslToHex(colors[role]);
@@ -111,7 +112,7 @@ function render() {
     item.hex.textContent = hex.toUpperCase();
     item.button.setAttribute('aria-pressed', String(role === state.selected));
     item.button.setAttribute('aria-label', `${name}, ${hex}, ${role === state.selected ? 'selected' : 'select to edit'}`);
-    $('theme-preview').querySelector('.preview-app').style.setProperty(`--${role}`, hex);
+    for (const preview of previews) preview.style.setProperty(`--${role}`, hex);
   }
   $('mode-light').setAttribute('aria-pressed', String(state.mode === 'light'));
   $('mode-dark').setAttribute('aria-pressed', String(state.mode === 'dark'));

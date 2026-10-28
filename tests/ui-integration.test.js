@@ -4,6 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { okhslToHex } from '../src/color.js';
 
 class Element {
   constructor(tag = 'div') {
@@ -39,6 +40,16 @@ class Element {
 
 test('editor flows preserve per-mode palettes, undo and export', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
+  assert.ok(html.indexOf('id="code-preview"') > html.indexOf('id="theme-preview"'), 'code preview follows existing preview');
+  assert.match(html, /<pre class="syntax-code"[^>]*tabindex="0"[^>]*><code>/);
+  for (const [token, role] of Object.entries({
+    comment: 'tx-3', keyword: 'purple', string: 'green', function: 'blue', type: 'yellow',
+    property: 'cyan', number: 'orange', constant: 'magenta', operator: 'red'
+  })) {
+    assert.match(html, new RegExp(`<span class="syntax-${token}">[^<]+</span>`), `${token} appears in the code sample`);
+    assert.ok(css.includes(`.syntax-${token}{color:var(--${role})}`), `${token} uses the ${role} palette role`);
+  }
   const elements = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1], new Element()]));
   const byId = (id) => {
     assert.ok(elements.has(id), `Missing DOM element #${id}`);
@@ -67,6 +78,13 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   try {
     await import('../src/app.js');
     const saved = () => JSON.parse(storage.get('tone-palette-studio-v1'));
+    const assertPreviewsMatchPalette = (mode) => {
+      for (const [role, color] of Object.entries(saved().palettes[mode])) {
+        const expected = okhslToHex(color);
+        assert.equal(byId('code-preview').style.getPropertyValue(`--${role}`), expected, `code preview ${mode} ${role}`);
+        assert.equal(byId('theme-preview').previewApp.style.getPropertyValue(`--${role}`), expected, `original preview ${mode} ${role}`);
+      }
+    };
     assert.equal(byId('base-swatches').children.length, 8);
     assert.equal(byId('accent-swatches').children.length, 8);
     assert.equal(byId('selected-name').textContent, 'Background');
@@ -78,6 +96,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     slider.dispatch('input');
     assert.equal(saved().palettes.light.red.h, 200);
     assert.equal(byId('theme-preview').previewApp.style.getPropertyValue('--red'), byId('hex-input').value.toLowerCase());
+    assertPreviewsMatchPalette('light');
 
     const hex = byId('hex-input');
     const beforeInvalid = JSON.stringify(saved().palettes.light.red);
@@ -92,14 +111,18 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     const lightHex = hex.value;
     byId('mode-dark').click();
     assert.notEqual(hex.value, lightHex);
+    assertPreviewsMatchPalette('dark');
     byId('mode-light').click();
     assert.equal(hex.value, lightHex);
+    assertPreviewsMatchPalette('light');
 
     const before = saved().palettes;
     byId('optimize-button').click();
     assert.notDeepEqual(saved().palettes.light, before.light);
+    assertPreviewsMatchPalette('light');
     byId('mode-dark').click();
     byId('optimize-button').click();
+    assertPreviewsMatchPalette('dark');
     const optimizedDark = saved().palettes.dark;
     byId('mode-light').click();
     assert.equal(byId('undo-button').disabled, false, 'light undo must survive optimizing dark');
