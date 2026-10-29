@@ -33,7 +33,7 @@
           <p id="undo-generation-help">Undo restores this mode's colors and optimization undo from before generation, removing later edits. Undo is cleared on import, reset, or reload.</p>
           <div class="notice" id="generation-message" role="status" aria-live="polite" hidden></div>
         </div>
-        <div class="swatch-section"><div class="group-heading"><span>BASE COLORS</span><span>01 — 08</span></div><div class="swatch-grid" id="base-swatches"></div></div>
+        <div class="swatch-section"><div class="group-heading"><span>BASE COLORS</span><span>01 — 08</span></div><button type="button" class="button button-outline base-generate-button" id="base-generate-button" aria-haspopup="dialog">Generate base colors ↗</button><div class="swatch-grid" id="base-swatches"></div></div>
         <div class="swatch-section accent-section"><div class="group-heading"><span>ACCENT COLORS</span><span>09 — 16</span></div><div class="swatch-grid" id="accent-swatches"></div></div>
         <div class="palette-footer"><span class="sparkle">✳</span><p>Good colors play well together.<br><span>Fine-tune each one to make it yours.</span></p></div>
       </section>
@@ -112,6 +112,34 @@
     </div>
     <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a href="https://earendil.com/posts/system-theme/" target="_blank" rel="noreferrer">SYSTEM THEME ↗</a> &amp; <a href="https://stephango.com/flexoki" target="_blank" rel="noreferrer">FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
   </main>
+  <dialog class="base-dialog" id="base-dialog" aria-labelledby="base-dialog-title" aria-describedby="base-dialog-help">
+    <div class="base-dialog-heading"><div><span class="overline">BUILD FROM TWO COLORS</span><h2 id="base-dialog-title">Generate base colors<span>.</span></h2></div><button type="button" class="base-dialog-close" id="base-dialog-close" aria-label="Cancel and close">×</button></div>
+    <p id="base-dialog-help">Choose the background and primary text for this mode. Applying replaces its eight base colors; accents and the other mode stay unchanged. Undo generation restores the previous palette, removing later edits.</p>
+    <p class="base-dialog-mode" id="base-dialog-mode"></p>
+    <div class="base-anchors">
+      <div class="base-anchor"><label for="base-bg-hex">Background <span>BG</span></label><div class="base-anchor-input"><input type="color" id="base-bg-picker" aria-label="Pick background color"><input type="text" id="base-bg-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-describedby="base-dialog-error"></div>
+        <div class="sliders base-anchor-sliders"><span class="overline">OKHSL</span>
+          <div class="slider-row"><div class="slider-label"><label for="base-bg-hue">Hue</label><output id="base-bg-hue-value" for="base-bg-hue"></output></div><input id="base-bg-hue" type="range" min="0" max="360" step="1" aria-label="Background hue" aria-describedby="base-hue-help"></div>
+          <div class="slider-row"><div class="slider-label"><label for="base-bg-saturation">Saturation</label><output id="base-bg-saturation-value" for="base-bg-saturation"></output></div><input id="base-bg-saturation" type="range" min="0" max="100" step="1" aria-label="Background saturation"></div>
+          <div class="slider-row"><div class="slider-label"><label for="base-bg-lightness">Lightness</label><output id="base-bg-lightness-value" for="base-bg-lightness"></output></div><input id="base-bg-lightness" type="range" min="0" max="100" step="1" aria-label="Background lightness"></div>
+        </div>
+      </div>
+      <div class="base-anchor"><label for="base-tx-hex">Primary text <span>TEXT</span></label><div class="base-anchor-input"><input type="color" id="base-tx-picker" aria-label="Pick primary text color"><input type="text" id="base-tx-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-describedby="base-dialog-error"></div>
+        <div class="sliders base-anchor-sliders"><span class="overline">OKHSL</span>
+          <div class="slider-row"><div class="slider-label"><label for="base-tx-hue">Hue</label><output id="base-tx-hue-value" for="base-tx-hue"></output></div><input id="base-tx-hue" type="range" min="0" max="360" step="1" aria-label="Primary text hue" aria-describedby="base-hue-help"></div>
+          <div class="slider-row"><div class="slider-label"><label for="base-tx-saturation">Saturation</label><output id="base-tx-saturation-value" for="base-tx-saturation"></output></div><input id="base-tx-saturation" type="range" min="0" max="100" step="1" aria-label="Primary text saturation"></div>
+          <div class="slider-row"><div class="slider-label"><label for="base-tx-lightness">Lightness</label><output id="base-tx-lightness-value" for="base-tx-lightness"></output></div><input id="base-tx-lightness" type="range" min="0" max="100" step="1" aria-label="Primary text lightness"></div>
+        </div>
+      </div>
+    </div>
+    <p class="base-hue-help" id="base-hue-help">Hue tracks show a fixed spectrum reference.</p>
+    <div class="base-anchor-preview" id="base-anchor-preview"><strong>Aa</strong><span>Background &amp; text</span></div>
+    <p class="base-contrast" id="base-anchor-contrast" role="status" aria-live="polite"></p>
+    <p class="base-dialog-footnote">We’ll use these two colors to build the remaining base roles, checking contrast where possible. Accents stay unchanged; check their contrast afterward.</p>
+    <p class="base-dialog-import-notice" id="base-dialog-import-notice" role="status" aria-live="polite" hidden></p>
+    <p class="base-dialog-error" id="base-dialog-error" role="alert" hidden></p>
+    <div class="base-dialog-actions"><button type="button" class="button button-outline" id="base-cancel-button">Cancel</button><button type="button" class="button button-dark" id="base-apply-button">Apply &amp; generate</button></div>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="./src/app.js"></script>
 </body>

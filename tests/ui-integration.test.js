@@ -21,7 +21,10 @@ class Element {
     this.validationMessage = '';
     this.scrollTop = 0;
     this.top = 0;
+    this.open = false;
   }
+  showModal() { this.open = true; }
+  close() { this.open = false; this.dispatch('close'); }
   append(...children) { this.children.push(...children); }
   remove() {}
   contains(element) { return this === element || this.children.some((child) => child.contains(element)); }
@@ -57,6 +60,16 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /id="generate-button"[^>]*aria-describedby="generate-help"/);
   assert.match(html, /id="undo-generation-button"[^>]*aria-describedby="undo-generation-help"[^>]*disabled/);
   assert.match(html, /id="generation-message"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="base-generate-button"[^>]*aria-haspopup="dialog"/);
+  assert.match(html, /<dialog[^>]*id="base-dialog"[^>]*aria-labelledby="base-dialog-title"[^>]*aria-describedby="base-dialog-help"/);
+  assert.match(html, /id="base-bg-picker"[^>]*aria-label="Pick background color"/);
+  assert.match(html, /id="base-tx-picker"[^>]*aria-label="Pick primary text color"/);
+  for (const [role, name] of [['bg', 'Background'], ['tx', 'Primary text']]) {
+    for (const [component, max] of [['hue', 360], ['saturation', 100], ['lightness', 100]]) {
+      assert.match(html, new RegExp(`id="base-${role}-${component}"[^>]*type="range"[^>]*min="0"[^>]*max="${max}"[^>]*step="1"[^>]*aria-label="${name} ${component}"`, 'i'));
+      assert.match(html, new RegExp(`id="base-${role}-${component}-value"`));
+    }
+  }
   assert.match(html, /Undo restores this mode's colors and optimization undo from before generation, removing later edits/);
   assert.match(html, /Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4\.5:1/);
   assert.match(html, /Text 3 at 3:1 and each accent at 4\.5:1 are checked against BG and BG 2/);
@@ -652,6 +665,260 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(byId('generation-message').hidden, true, 'reset clears retained generation notes');
     byId('mode-dark').click();
     assert.equal(byId('generation-message').hidden, true, 'reset clears notes in the other mode too');
+
+    // The anchor dialog is a separate, reversible operation on the active
+    // mode's eight base roles. It never changes accents or the other mode.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    byId('optimize-button').click();
+    const beforeBase = structuredClone(saved());
+    byId('base-generate-button').click();
+    assert.equal(byId('base-dialog').open, true);
+    assert.equal(byId('base-bg-hex').value, okhslToHex(beforeBase.palettes.light.bg).toUpperCase());
+    assert.equal(byId('base-tx-hex').value, okhslToHex(beforeBase.palettes.light.tx).toUpperCase());
+    assert.equal(document.activeElement, byId('base-bg-hex'));
+    byId('base-bg-hex').value = '#123456';
+    byId('base-bg-hex').dispatch('input');
+    byId('base-cancel-button').click();
+    assert.deepEqual(saved(), beforeBase, 'cancel does not change persisted state');
+    assert.equal(document.activeElement, byId('base-generate-button'), 'cancel returns focus to its opener');
+    byId('base-generate-button').click();
+    byId('base-bg-hex').value = 'bad';
+    byId('base-bg-hex').dispatch('input');
+    byId('base-apply-button').click();
+    assert.equal(byId('base-dialog').open, true, 'invalid hex keeps dialog open');
+    assert.match(byId('base-dialog-error').textContent, /six-digit/);
+    assert.deepEqual(saved(), beforeBase, 'invalid anchors are atomic');
+    byId('base-bg-hex').value = '#faf4e6';
+    byId('base-bg-hex').dispatch('input');
+    byId('base-tx-picker').value = '#241c32';
+    byId('base-tx-picker').dispatch('input');
+    assert.equal(byId('base-tx-hex').value, '#241C32');
+    assert.match(byId('base-anchor-contrast').textContent, /:1/);
+    byId('base-apply-button').click();
+    assert.equal(byId('base-dialog').open, false);
+    assert.equal(saved().mode, 'light');
+    assert.equal(okhslToHex(saved().palettes.light.bg), '#faf4e6');
+    assert.equal(okhslToHex(saved().palettes.light.tx), '#241c32');
+    assert.deepEqual(saved().palettes.dark, beforeBase.palettes.dark);
+    for (const role of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta']) assert.deepEqual(saved().palettes.light[role], beforeBase.palettes.light[role], `${role} is unchanged`);
+    assert.equal(byId('undo-button').disabled, true, 'old optimizer undo is not offered on the new base palette');
+    assert.equal(byId('undo-generation-button').disabled, false);
+    assert.match(byId('generation-message').textContent, /Accents were unchanged/);
+    assertPreviewsMatchPalette('light');
+    byId('download-json').click();
+    const baseExport = JSON.parse(await blobs.at(-1).text());
+    assert.deepEqual(baseExport.modes.light.bg.okhsl, saved().palettes.light.bg);
+    assert.deepEqual(baseExport.modes.dark.bg.okhsl, saved().palettes.dark.bg);
+    byId('accent-swatches').children[0].click();
+    slider.value = '170'; slider.dispatch('input');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, beforeBase.palettes, 'undo restores the complete pre-base palette including later edits');
+    assert.equal(byId('undo-button').disabled, false, 'previous optimization history returns with the prior palette');
+
+    // Both dialog anchors use the same OKHSL controls as the main editor,
+    // while changes remain a draft until the user explicitly applies them.
+    const beforeSliders = structuredClone(saved());
+    const bgDraft = structuredClone(beforeSliders.palettes.light.bg);
+    byId('base-generate-button').click();
+    for (const [role, color] of [['bg', bgDraft], ['tx', beforeSliders.palettes.light.tx]]) {
+      for (const [name, property, suffix] of [['hue', 'h', '°'], ['saturation', 's', '%'], ['lightness', 'l', '%']]) {
+        assert.equal(Number(byId(`base-${role}-${name}`).value), Math.round(color[property]));
+        assert.equal(byId(`base-${role}-${name}-value`).textContent, `${Math.round(color[property])}${suffix}`);
+        assert.match(byId(`base-${role}-${name}`).style.background, /^linear-gradient\(to right,/);
+      }
+    }
+    assert.equal(byId('base-bg-hue').style.background, byId('hue').style.background, 'hue uses the same fixed OKHSL spectrum as the main editor');
+    for (const [name, property, value] of [['hue', 'h', 138], ['saturation', 's', 76], ['lightness', 'l', 87]]) {
+      bgDraft[property] = value;
+      byId(`base-bg-${name}`).value = String(value);
+      byId(`base-bg-${name}`).dispatch('input');
+      assert.equal(byId('base-bg-hex').value, okhslToHex(bgDraft).toUpperCase());
+      assert.equal(byId('base-bg-picker').value, okhslToHex(bgDraft));
+      assert.equal(byId('base-anchor-preview').style.backgroundColor, okhslToHex(bgDraft));
+      assert.deepEqual(saved(), beforeSliders, 'slider changes remain a dialog draft');
+    }
+    const beforeHexGradient = byId('base-tx-saturation').style.background;
+    byId('base-tx-hex').value = '#241C32';
+    byId('base-tx-hex').dispatch('input');
+    let txDraft = hexToOkhsl('#241c32');
+    assert.equal(byId('base-tx-picker').value, '#241c32');
+    assert.equal(Number(byId('base-tx-hue').value), Math.round(txDraft.h));
+    assert.notEqual(byId('base-tx-saturation').style.background, beforeHexGradient, 'hex edits update OKHSL gradient tracks');
+    byId('base-tx-picker').value = '#315b72';
+    byId('base-tx-picker').dispatch('input');
+    txDraft = hexToOkhsl('#315b72');
+    assert.equal(byId('base-tx-hex').value, '#315B72');
+    assert.equal(Number(byId('base-tx-saturation').value), Math.round(txDraft.s));
+    for (const [name, property, value] of [['hue', 'h', 205], ['saturation', 's', 63], ['lightness', 'l', 22]]) {
+      byId(`base-tx-${name}`).value = String(value);
+      byId(`base-tx-${name}`).dispatch('input');
+      txDraft[property] = value;
+      assert.equal(byId('base-tx-hex').value, okhslToHex(txDraft).toUpperCase());
+      assert.equal(byId('base-tx-picker').value, okhslToHex(txDraft));
+      assert.equal(byId('base-anchor-preview').style.color, okhslToHex(txDraft));
+    }
+    const expectedTrack = (makeColor) => `linear-gradient(to right, ${Array.from({ length: 13 }, (_, index) => {
+      const position = index / 12;
+      return `${okhslToHex(makeColor(position))} ${Math.round(position * 100)}%`;
+    }).join(', ')})`;
+    assert.equal(byId('base-bg-saturation').style.background, expectedTrack((position) => ({ h: bgDraft.h, s: position * 100, l: bgDraft.l })));
+    assert.equal(byId('base-bg-lightness').style.background, expectedTrack((position) => ({ h: bgDraft.h, s: bgDraft.s, l: position * 100 })));
+    assert.equal(byId('base-tx-saturation').style.background, expectedTrack((position) => ({ h: txDraft.h, s: position * 100, l: txDraft.l })));
+    assert.equal(byId('base-tx-lightness').style.background, expectedTrack((position) => ({ h: txDraft.h, s: txDraft.s, l: position * 100 })));
+    assert.deepEqual(saved(), beforeSliders);
+    byId('base-apply-button').click();
+    assert.deepEqual(saved().palettes.light.bg, bgDraft, 'Apply preserves the chosen OKHSL coordinates, not a quantized hex round-trip');
+    assert.deepEqual(saved().palettes.light.tx, txDraft, 'both anchors use their exact slider drafts');
+    assert.deepEqual(saved().palettes.dark, beforeSliders.palettes.dark);
+    for (const role of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta']) assert.deepEqual(saved().palettes.light[role], beforeSliders.palettes.light[role]);
+    assertPreviewsMatchPalette('light');
+    byId('download-json').click();
+    const sliderExport = JSON.parse(await blobs.at(-1).text());
+    assert.deepEqual(sliderExport.modes.light.bg.okhsl, bgDraft);
+    assert.deepEqual(sliderExport.modes.light.tx.okhsl, txDraft);
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, beforeSliders.palettes);
+
+    // Invalid/partial hex remains invalid until explicitly replaced by a
+    // slider edit, which starts from the last valid draft and synchronizes it.
+    byId('base-generate-button').click();
+    byId('base-bg-hex').value = '#12';
+    byId('base-bg-hex').dispatch('input');
+    byId('base-apply-button').click();
+    assert.equal(byId('base-dialog').open, true);
+    assert.match(byId('base-dialog-error').textContent, /six-digit/);
+    byId('base-bg-hue').value = '220';
+    byId('base-bg-hue').dispatch('input');
+    assert.match(byId('base-bg-hex').value, /^#[0-9A-F]{6}$/);
+    byId('base-cancel-button').click();
+    assert.deepEqual(saved(), beforeSliders, 'cancel discards slider and partial-hex edits');
+
+    // Hue/saturation at a black endpoint are meaningful editable coordinates
+    // even though the displayed hex does not change when hue is adjusted.
+    const endpointPalette = structuredClone(reported);
+    endpointPalette.dark.bg = { h: 42.5, s: 62.4, l: 0 };
+    await importFile(jsonFile(makeExport(endpointPalette)));
+    byId('mode-dark').click();
+    const beforeEndpoint = structuredClone(saved());
+    byId('base-generate-button').click();
+    assert.equal(byId('base-bg-hex').value, '#000000');
+    byId('base-bg-hue').value = '248';
+    byId('base-bg-hue').dispatch('input');
+    assert.equal(byId('base-bg-hex').value, '#000000');
+    byId('base-apply-button').click();
+    assert.deepEqual(saved().palettes.dark.bg, { h: 248, s: 62.4, l: 0 }, 'slider-edited hidden hue and exact saturation survive identical hex');
+    assert.deepEqual(saved().palettes.dark.tx, beforeEndpoint.palettes.dark.tx, 'untouched text keeps its precise OKHSL coordinates');
+    assert.deepEqual(saved().palettes.light, beforeEndpoint.palettes.light);
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, beforeEndpoint.palettes);
+
+    // Leaving a quantized hex untouched must not round-trip and lose exact
+    // stored OKHSL components, even when the displayed anchors are unchanged.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-dark').click();
+    const untouched = structuredClone(saved());
+    byId('base-generate-button').click();
+    byId('base-apply-button').click();
+    assert.deepEqual(saved().palettes.dark.bg, untouched.palettes.dark.bg);
+    assert.deepEqual(saved().palettes.dark.tx, untouched.palettes.dark.tx);
+    assert.deepEqual(saved().palettes.light, untouched.palettes.light);
+    assertPreviewsMatchPalette('dark');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, untouched.palettes);
+
+    // A known boundary color rounds a channel differently on the raw inverse;
+    // dialog selections must still be applied exactly as displayed.
+    byId('base-generate-button').click();
+    byId('base-bg-hex').value = '#FFEf98';
+    byId('base-bg-hex').dispatch('input');
+    byId('base-apply-button').click();
+    assert.equal(okhslToHex(saved().palettes.dark.bg), '#ffef98', 'chosen hex is preserved exactly');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes, untouched.palettes);
+
+    // Preserve the earlier opposite-mode generation undo across a later base
+    // generation and its undo.
+    await importFile(jsonFile(makeExport(reported)));
+    byId('mode-light').click();
+    byId('generate-button').click();
+    const generatedDark = structuredClone(saved().palettes.dark);
+    byId('base-generate-button').click();
+    byId('base-apply-button').click();
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.dark, generatedDark);
+    assert.equal(byId('undo-generation-button').disabled, false, 'earlier mode generation remains undoable');
+    byId('undo-generation-button').click();
+    assert.deepEqual(saved().palettes.dark, reported.dark);
+
+    const baseRead = deferredImport();
+    byId('base-generate-button').click();
+    byId('base-apply-button').click();
+    const afterBaseRead = structuredClone(saved());
+    await finishCancelled(baseRead, afterBaseRead, 'base generation');
+
+    // Editing either anchor in the modal cancels an in-flight file read before
+    // it can replace the palette underneath an uncommitted draft.
+    for (const [inputId, value, hexValue, shouldApply] of [
+      ['base-bg-hex', '#1A2B3C', '#1A2B3C', true],
+      ['base-tx-picker', '#e1d2c3', '#E1D2C3', false]
+    ]) {
+      await importFile(jsonFile(makeExport(reported)));
+      const beforeDraft = structuredClone(saved());
+      const pending = deferredImport();
+      byId('base-generate-button').click();
+      assert.equal(byId('base-dialog-import-notice').hidden, true);
+      byId(inputId).value = value;
+      byId(inputId).dispatch('input');
+      assert.equal(byId('base-dialog-import-notice').hidden, false, 'cancellation is visible inside the modal');
+      assert.match(byId('base-dialog-import-notice').textContent, /cancelled.*select.*again/i);
+      await finishCancelled(pending, beforeDraft, 'base dialog draft');
+      assert.equal(byId(inputId === 'base-bg-hex' ? 'base-bg-hex' : 'base-tx-hex').value, hexValue, 'uncommitted input survives the stale read');
+      if (shouldApply) {
+        byId('base-apply-button').click();
+        assert.equal(okhslToHex(saved().palettes[saved().mode].bg), hexValue.toLowerCase());
+      } else {
+        byId('base-cancel-button').click();
+        assert.deepEqual(saved(), beforeDraft, 'cancel leaves the pre-draft palette unchanged');
+      }
+      await importFile(jsonFile(makeExport(reported)));
+      assert.deepEqual(saved().palettes, reported, 'the file can be selected again after draft cancellation');
+    }
+    // A slider edit also cancels a pending import before it can overwrite a
+    // draft; selecting the same file again remains possible afterward.
+    for (const [role, component, value] of [['bg', 'hue', 181], ['tx', 'saturation', 61]]) {
+      await importFile(jsonFile(makeExport(reported)));
+      const beforeDraft = structuredClone(saved());
+      const pending = deferredImport();
+      byId('base-generate-button').click();
+      byId(`base-${role}-${component}`).value = String(value);
+      byId(`base-${role}-${component}`).dispatch('input');
+      const draftHex = byId(`base-${role}-hex`).value;
+      assert.equal(byId('base-dialog-import-notice').hidden, false);
+      await finishCancelled(pending, beforeDraft, 'base dialog slider');
+      assert.equal(byId(`base-${role}-hex`).value, draftHex, 'slider draft survives the stale read');
+      byId('base-cancel-button').click();
+      assert.deepEqual(saved(), beforeDraft, 'cancelling after a slider edit leaves the palette unchanged');
+      await importFile(jsonFile(makeExport(reported)));
+      assert.deepEqual(saved().palettes, reported, 'retry succeeds after a slider draft cancelled an import');
+    }
+    const uneditedRead = deferredImport();
+    byId('base-generate-button').click();
+    byId('base-cancel-button').click();
+    uneditedRead.resolve(JSON.stringify(json));
+    await uneditedRead.pending;
+    assert.deepEqual(saved().palettes, before, 'merely opening/cancelling an unedited dialog does not cancel a pending import');
+
+    // A completed import while the dialog is open invalidates the draft rather
+    // than allowing stale selections to overwrite the newly imported palette.
+    byId('base-generate-button').click();
+    await importFile(jsonFile(makeExport(reported)));
+    const importedWhileOpen = structuredClone(saved());
+    byId('base-apply-button').click();
+    assert.deepEqual(saved(), importedWhileOpen);
+    assert.match(byId('base-dialog-error').textContent, /palette changed.*reopen/i);
+    assert.equal(byId('base-dialog').open, true);
+    byId('base-dialog-close').click();
   } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

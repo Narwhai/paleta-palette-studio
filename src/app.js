@@ -1,6 +1,7 @@
 import { okhslToHex, hexToOkhsl, contrastRatio } from './color.js';
 import { optimizePalette } from './optimize.js';
 import { generateOppositePalette } from './generate.js';
+import { generateBaseColors } from './base-generation.js';
 
 const BASE = [
   ['bg', 'Background'], ['bg-2', 'Background 2'], ['ui', 'Interface'], ['ui-2', 'Interface 2'],
@@ -114,6 +115,19 @@ function gradient(makeColor) {
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
+// The hue track is a fixed reference so it remains useful even for grays and
+// black/white. Saturation and lightness tracks use the current OKHSL color.
+const hueGradient = gradient((position) => ({ h: position * 360, s: 75, l: 65 }));
+function renderSliders(prefix, color) {
+  for (const [name, property, unit] of [['hue', 'h', '°'], ['saturation', 's', '%'], ['lightness', 'l', '%']]) {
+    $(`${prefix}${name}`).value = Math.round(color[property]);
+    $(`${prefix}${name}-value`).textContent = `${Math.round(color[property])}${unit}`;
+  }
+  $(`${prefix}hue`).style.background = hueGradient;
+  $(`${prefix}saturation`).style.background = gradient((position) => ({ h: color.h, s: position * 100, l: color.l }));
+  $(`${prefix}lightness`).style.background = gradient((position) => ({ h: color.h, s: color.s, l: position * 100 }));
+}
+
 function render() {
   const colors = state.palettes[state.mode];
   const color = colors[state.selected];
@@ -145,16 +159,7 @@ function render() {
   $('selected-name').textContent = ROLES.find(([role]) => role === state.selected)[1];
   $('selected-role').textContent = `${BASE.some(([role]) => role === state.selected) ? 'BASE' : 'ACCENT'} / ${state.selected.toUpperCase()}`;
   $('hex-input').value = currentHex.toUpperCase();
-  $('hue').value = Math.round(color.h);
-  $('saturation').value = Math.round(color.s);
-  $('lightness').value = Math.round(color.l);
-  $('hue-value').textContent = `${Math.round(color.h)}°`;
-  $('saturation-value').textContent = `${Math.round(color.s)}%`;
-  $('lightness-value').textContent = `${Math.round(color.l)}%`;
-  // A fixed reference keeps the hue spectrum usable for grays and black/white.
-  $('hue').style.background = gradient((position) => ({ h: position * 360, s: 75, l: 65 }));
-  $('saturation').style.background = gradient((position) => ({ h: color.h, s: position * 100, l: color.l }));
-  $('lightness').style.background = gradient((position) => ({ h: color.h, s: color.s, l: position * 100 }));
+  renderSliders('', color);
   $('contrast-bg').textContent = `${contrastRatio(currentHex, okhslToHex(colors.bg)).toFixed(2)}:1`;
   $('contrast-bg2').textContent = `${contrastRatio(currentHex, okhslToHex(colors['bg-2'])).toFixed(2)}:1`;
   $('undo-button').disabled = !undo[state.mode];
@@ -219,7 +224,11 @@ $('generate-button').addEventListener('click', () => {
     generationUndo[result.mode] = {
       colors: clone(state.palettes[result.mode]),
       optimizationUndo: undo[result.mode] ? clone(undo[result.mode]) : null,
-      notes: generationNotes[result.mode]
+      notes: generationNotes[result.mode],
+      // If this destination was last changed by base generation, keep that
+      // undo available when the newly generated mode is undone.
+      previousGenerationUndo: generationUndo[result.mode]?.operation === 'base' ? generationUndo[result.mode] : null,
+      operation: 'mode'
     };
     // The prior optimization snapshot belongs to the replaced palette. Keep it
     // with the generation snapshot, but don't expose it for the new palette.
@@ -245,7 +254,7 @@ $('undo-generation-button').addEventListener('click', () => {
   cancelPendingImport();
   const snapshot = generationUndo[state.mode];
   state.palettes[state.mode] = snapshot.colors;
-  generationUndo[state.mode] = null;
+  generationUndo[state.mode] = snapshot.previousGenerationUndo || null;
   // Discard optimizations of the generated palette, then restore the undo
   // snapshot that belonged to the destination before it was replaced.
   undo[state.mode] = snapshot.optimizationUndo;
@@ -258,6 +267,188 @@ $('undo-generation-button').addEventListener('click', () => {
   const notice = $('generation-message');
   notice.textContent = `Generation undone. The previous ${state.mode} palette is restored.${snapshot.notes ? `\n${snapshot.notes}` : ''}`;
   notice.hidden = false;
+});
+
+// The dialog is a draft: neither picker changes the palette until Apply.
+const baseDialog = $('base-dialog');
+let baseDraft = null;
+const baseAnchors = [['bg', 'base-bg-hex', 'base-bg-picker'], ['tx', 'base-tx-hex', 'base-tx-picker']];
+function normalizedHex(value) {
+  const trimmed = value.trim();
+  const hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  return /^#[\da-f]{6}$/i.test(hex) ? hex.toLowerCase() : null;
+}
+function exactAnchor(hex) {
+  const original = hexToOkhsl(hex);
+  if (okhslToHex(original) === hex) return original;
+  // Rare sRGB boundary colors can round-trip one channel off because of the
+  // numerical OKHSL gamut approximation. Try nearby bounded coordinates so
+  // the selected, displayed hex remains exact rather than silently changing.
+  const offsets = [0, -0.001, 0.001, -0.01, 0.01, -0.05, 0.05, -0.1, 0.1];
+  for (const dl of offsets) for (const ds of offsets) for (const dh of offsets) {
+    const l = original.l + dl, s = original.s + ds;
+    if (l < 0 || l > 100 || s < 0 || s > 100) continue;
+    const color = { h: (original.h + dh + 360) % 360, s, l };
+    if (okhslToHex(color) === hex) return color;
+  }
+  throw new Error(`The selected color ${hex.toUpperCase()} cannot be represented exactly; please choose a nearby color`);
+}
+function updateBasePreview() {
+  const background = normalizedHex($('base-bg-hex').value);
+  const text = normalizedHex($('base-tx-hex').value);
+  if (!background || !text) {
+    $('base-anchor-contrast').textContent = 'Enter two six-digit hex colors to preview their contrast.';
+    return;
+  }
+  const preview = $('base-anchor-preview');
+  preview.style.backgroundColor = background;
+  preview.style.color = text;
+  $('base-anchor-contrast').textContent = `Selected text on background: ${contrastRatio(background, text).toFixed(2)}:1. The base generator targets 7:1 for primary text where possible.`;
+}
+$('base-generate-button').addEventListener('click', () => {
+  const mode = state.mode;
+  const colors = state.palettes[mode];
+  baseDraft = {
+    mode,
+    anchors: { bg: clone(colors.bg), tx: clone(colors.tx) },
+    colors: { bg: clone(colors.bg), tx: clone(colors.tx) },
+    paletteSnapshot: JSON.stringify(state.palettes)
+  };
+  for (const [role, hexId, pickerId] of baseAnchors) {
+    const hex = okhslToHex(baseDraft.anchors[role]);
+    $(hexId).value = hex.toUpperCase();
+    $(hexId).setCustomValidity('');
+    $(pickerId).value = hex;
+    renderSliders(`base-${role}-`, baseDraft.colors[role]);
+  }
+  $('base-dialog-mode').textContent = `EDITING ${mode.toUpperCase()} MODE`;
+  $('base-dialog-error').hidden = true;
+  $('base-dialog-import-notice').hidden = true;
+  updateBasePreview();
+  baseDialog.showModal();
+  $('base-bg-hex').focus();
+});
+function cancelImportForBaseDraft() {
+  if (!importPending) return;
+  cancelPendingImport();
+  // The ordinary import status lives behind the modal; repeat it here so the
+  // user can hear/read why the file needs to be selected again.
+  $('base-dialog-import-notice').textContent = $('import-message').textContent;
+  $('base-dialog-import-notice').hidden = false;
+}
+function syncBaseHex(role, hexId, hex) {
+  try {
+    // Preserve precise coordinates when the displayed hex still matches the
+    // draft or the original anchor; otherwise use the exact hex conversion.
+    if (hex !== okhslToHex(baseDraft.colors[role])) {
+      baseDraft.colors[role] = hex === okhslToHex(baseDraft.anchors[role])
+        ? clone(baseDraft.anchors[role]) : exactAnchor(hex);
+    }
+    renderSliders(`base-${role}-`, baseDraft.colors[role]);
+  } catch (error) {
+    $(hexId).setCustomValidity(error.message);
+    $('base-dialog-error').textContent = error.message;
+    $('base-dialog-error').hidden = false;
+  }
+}
+for (const [role, hexId, pickerId] of baseAnchors) {
+  $(hexId).addEventListener('input', () => {
+    if (!baseDraft) return;
+    cancelImportForBaseDraft();
+    $(hexId).setCustomValidity('');
+    $('base-dialog-error').hidden = true;
+    const hex = normalizedHex($(hexId).value);
+    if (hex) {
+      $(pickerId).value = hex;
+      syncBaseHex(role, hexId, hex);
+    }
+    updateBasePreview();
+  });
+  $(pickerId).addEventListener('input', () => {
+    if (!baseDraft) return;
+    cancelImportForBaseDraft();
+    const hex = $(pickerId).value.toLowerCase();
+    $(hexId).value = hex.toUpperCase();
+    $(hexId).setCustomValidity('');
+    $('base-dialog-error').hidden = true;
+    syncBaseHex(role, hexId, hex);
+    updateBasePreview();
+  });
+  for (const [name, property] of [['hue', 'h'], ['saturation', 's'], ['lightness', 'l']]) {
+    $(`base-${role}-${name}`).addEventListener('input', (event) => {
+      if (!baseDraft) return;
+      const value = Number(event.target.value);
+      if (baseDraft.colors[role][property] !== value) cancelImportForBaseDraft();
+      baseDraft.colors[role][property] = value;
+      const hex = okhslToHex(baseDraft.colors[role]);
+      $(hexId).value = hex.toUpperCase();
+      $(pickerId).value = hex;
+      $(hexId).setCustomValidity('');
+      $('base-dialog-error').hidden = true;
+      renderSliders(`base-${role}-`, baseDraft.colors[role]);
+      updateBasePreview();
+    });
+  }
+}
+$('base-dialog-close').addEventListener('click', () => baseDialog.close());
+$('base-cancel-button').addEventListener('click', () => baseDialog.close());
+baseDialog.addEventListener('close', () => {
+  baseDraft = null;
+  $('base-generate-button').focus();
+});
+$('base-apply-button').addEventListener('click', () => {
+  if (!baseDraft) return;
+  for (const [, hexId] of baseAnchors) {
+    const input = $(hexId);
+    if (!normalizedHex(input.value)) {
+      input.setCustomValidity('Enter a six-digit hex color, for example #FFFCF4.');
+      $('base-dialog-error').textContent = 'Enter two valid six-digit hex colors.';
+      $('base-dialog-error').hidden = false;
+      input.reportValidity();
+      return;
+    }
+    input.setCustomValidity('');
+  }
+  if (JSON.stringify(state.palettes) !== baseDraft.paletteSnapshot || state.mode !== baseDraft.mode) {
+    $('base-dialog-error').textContent = 'The palette changed while this dialog was open. Close and reopen it to choose colors for the current palette.';
+    $('base-dialog-error').hidden = false;
+    return;
+  }
+  try {
+    const mode = baseDraft.mode;
+    const chosen = {};
+    for (const [role, hexId] of baseAnchors) {
+      const hex = normalizedHex($(hexId).value);
+      // Slider edits keep precise OKHSL coordinates rather than round-tripping
+      // through the quantized hex. Also handle a text value set without input.
+      chosen[role] = hex === okhslToHex(baseDraft.colors[role]) ? clone(baseDraft.colors[role])
+        : hex === okhslToHex(baseDraft.anchors[role]) ? clone(baseDraft.anchors[role]) : exactAnchor(hex);
+    }
+    const result = generateBaseColors(chosen.bg, chosen.tx);
+    if (!result || !result.colors || !BASE.every(([role]) => validColor(result.colors[role])) || !Array.isArray(result.warnings)) throw new Error('Invalid generated base colors');
+    cancelPendingImport();
+    generationUndo[mode] = {
+      colors: clone(state.palettes[mode]),
+      optimizationUndo: undo[mode] ? clone(undo[mode]) : null,
+      notes: generationNotes[mode],
+      previousGenerationUndo: generationUndo[mode],
+      operation: 'base'
+    };
+    undo[mode] = null;
+    state.palettes[mode] = { ...state.palettes[mode], ...result.colors };
+    $('optimizer-message').hidden = true;
+    $('hex-input').setCustomValidity('');
+    $('hex-help').textContent = '';
+    generationNotes[mode] = result.warnings.length
+      ? `Generated ${mode} base colors. Generation-time notes (may not reflect later edits or optimization):\n${result.warnings.join('\n')}\nAccents were unchanged; check their contrast against the new backgrounds.`
+      : `Generated ${mode} base colors. No generation-time base contrast notes; later edits or optimization can change contrast. Accents were unchanged; check their contrast against the new backgrounds.`;
+    render();
+    save();
+    baseDialog.close();
+  } catch (error) {
+    $('base-dialog-error').textContent = `Could not generate base colors: ${error.message}. Your colors have not been changed.`;
+    $('base-dialog-error').hidden = false;
+  }
 });
 
 $('optimize-button').addEventListener('click', () => {
@@ -438,6 +629,7 @@ document.addEventListener('click', (event) => {
   if (!event.target.closest('.export-wrap')) closeExport();
 });
 document.addEventListener('keydown', (event) => {
+  if (baseDialog.open) return; // Native dialog handles Escape and focus.
   if (event.key === 'Escape' && !$('export-menu').hidden) {
     closeExport();
     $('export-toggle').focus();
