@@ -37,7 +37,11 @@ class Element {
   dispatch(type) {
     return Promise.all((this.listeners.get(type) || []).map((listener) => listener({ type, target: this })));
   }
-  click() { if (!this.disabled) this.dispatch('click'); }
+  click() {
+    if (this.disabled) return;
+    if (this.tagName === 'A' && this.download) document.downloads.push({ filename: this.download, url: this.href });
+    this.dispatch('click');
+  }
   setCustomValidity(message) { this.validationMessage = message; }
   reportValidity() { return !this.validationMessage; }
   focus() { document.activeElement = this; }
@@ -57,6 +61,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /id="import-help">Replaces both modes/);
   assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
   assert.match(html, /id="import-message"[^>]*role="status"/);
+  assert.match(html, /id="download-base16-light"[^>]*>Download Base16-style light/);
+  assert.match(html, /id="download-base16-dark"[^>]*>Download Base16-style dark/);
   assert.match(html, /id="generate-button"[^>]*aria-describedby="generate-help"/);
   assert.match(html, /id="undo-generation-button"[^>]*aria-describedby="undo-generation-help"[^>]*disabled/);
   assert.match(html, /id="generation-message"[^>]*role="status"[^>]*aria-live="polite"/);
@@ -109,13 +115,15 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   const storage = new Map();
   let clipboard = '';
   const blobs = [];
+  const downloads = [];
   const originals = Object.fromEntries(['document', 'window', 'localStorage', 'navigator', 'URL'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const install = (key, value) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   install('document', {
     getElementById: byId,
     createElement: (tag) => new Element(tag),
     addEventListener(type, listener) { documentListeners.set(type, listener); },
-    body: new Element('body')
+    body: new Element('body'),
+    downloads
   });
   install('window', { confirm: () => true, matchMedia: () => ({ matches: true }) });
   install('localStorage', {
@@ -193,6 +201,20 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(hex.value, lightHex);
     assertPreviewsMatchPalette('light');
 
+    // Edit the two interface roles that the former semantic mapping omitted.
+    // Both mode-specific downloads must use these current values.
+    for (const [mode, ui2, ui3] of [['light', '#c1c2c3', '#afb2b5'], ['dark', '#43484d', '#5a6066']]) {
+      byId(`mode-${mode}`).click();
+      for (const [index, value] of [[3, ui2], [4, ui3]]) {
+        byId('base-swatches').children[index].click();
+        hex.value = value;
+        hex.dispatch('change');
+        assert.equal(hex.value, value.toUpperCase());
+      }
+    }
+    byId('mode-light').click();
+    byId('accent-swatches').children[0].click();
+
     const before = saved().palettes;
     assert.equal(byId('undo-button').disabled, true, 'undo starts unavailable');
     byId('optimize-button').click();
@@ -242,6 +264,45 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
         assert.ok(css.includes(`--color-${role}: ${okhslToHex(color)};`));
       }
     }
+
+    // Each Base16 action exports the named mode independently of the currently
+    // selected mode, without modifying either palette or the other exports.
+    const beforeBase16 = structuredClone(saved());
+    assert.equal(beforeBase16.mode, 'dark');
+    byId('export-menu').hidden = true;
+    byId('export-toggle').click();
+    assert.equal(byId('export-toggle').getAttribute('aria-expanded'), 'true');
+    byId('download-base16-light').click();
+    assert.equal(byId('export-menu').hidden, true);
+    assert.equal(byId('export-toggle').getAttribute('aria-expanded'), 'false');
+    assert.equal(document.activeElement, byId('export-toggle'), 'Base16 download restores menu-button focus');
+    byId('export-toggle').click();
+    byId('download-base16-dark').click();
+    assert.equal(byId('export-menu').hidden, true);
+    assert.equal(document.activeElement, byId('export-toggle'));
+    assert.deepEqual(downloads.map((item) => item.filename), ['tone-palette.css', 'tone-palette.json', 'tone-base16-light.yaml', 'tone-base16-dark.yaml']);
+    const base16Roles = ['bg', 'bg-2', 'ui', 'ui-2', 'ui-3', 'tx-3', 'tx-2', 'tx', 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'];
+    assert.equal(new Set(base16Roles).size, 16, 'each selected palette role appears once');
+    for (const [index, mode] of ['light', 'dark'].entries()) {
+      const yaml = await blobs[index + 2].text();
+      assert.equal(blobs[index + 2].type, 'application/yaml;charset=utf-8');
+      const lines = yaml.trimEnd().split('\n');
+      assert.equal(lines.length, 18);
+      assert.equal(new Set(base16Roles.slice(0, 8).map((role) => okhslToHex(before[mode][role]))).size, 8, `${mode} uses eight distinct test base colors`);
+      assert.equal(lines[0], `scheme: "Tone Palette ${mode === 'light' ? 'Light' : 'Dark'}"`);
+      assert.equal(lines[1], 'author: "Unknown (generated with Tone)"');
+      for (const [slot, role] of base16Roles.entries()) {
+        const key = `base${slot.toString(16).toUpperCase().padStart(2, '0')}`;
+        assert.equal(lines[slot + 2], `${key}: "${okhslToHex(before[mode][role]).slice(1)}"`, `${mode} ${key} uses current ${role}`);
+      }
+    }
+    assert.deepEqual(saved(), beforeBase16, 'Base16 export does not change the selected mode or either palette');
+    byId('export-toggle').click();
+    documentListeners.get('keydown')({ key: 'Escape' });
+    assert.equal(byId('export-menu').hidden, true, 'Escape closes the export menu');
+    assert.equal(document.activeElement, byId('export-toggle'), 'Escape restores menu-button focus');
+    byId('download-json').click();
+    assert.deepEqual(JSON.parse(await blobs.at(-1).text()), json, 'existing JSON export stays unchanged after Base16 downloads');
 
     byId('optimize-button').click();
     slider.value = '165';

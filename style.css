@@ -89,6 +89,14 @@
 .optimizer-bottom{justify-content:flex-end}
 @media(max-width:350px){.optimize-actions{margin-left:0}}
 
+/* Keep all export actions reachable on short screens. */
+.export-menu{max-height:calc(100vh - 5rem);max-height:calc(100dvh - 5rem);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:250px){
+  .topbar{position:relative}
+  .export-wrap{position:static}
+  .export-menu{left:12px;right:12px;width:auto}
+}
+
 /* Import is next to export and explains which palettes it replaces. */
 .button-import{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 10px;background:#f3f1e9;color:#47443b;border:1px solid #e3dfd2;line-height:1.2}
 .button-import:hover{background:#ebe8dd}

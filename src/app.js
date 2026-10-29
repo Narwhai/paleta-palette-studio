@@ -2,6 +2,7 @@ import { okhslToHex, hexToOkhsl, contrastRatio } from './color.js';
 import { optimizePalette } from './optimize.js';
 import { generateOppositePalette } from './generate.js';
 import { generateBaseColors } from './base-generation.js';
+import { serializeBase16 } from './base16.js';
 
 const BASE = [
   ['bg', 'Background'], ['bg-2', 'Background 2'], ['ui', 'Interface'], ['ui-2', 'Interface 2'],
@@ -649,6 +650,19 @@ $('copy-css').addEventListener('click', async () => {
 });
 $('download-css').addEventListener('click', () => { download('tone-palette.css', cssExport(), 'text/css'); closeExport(); toast('CSS palette downloaded.'); });
 $('download-json').addEventListener('click', () => { download('tone-palette.json', jsonExport(), 'application/json'); closeExport(); toast('JSON palette downloaded.'); });
+for (const mode of ['light', 'dark']) {
+  $(`download-base16-${mode}`).addEventListener('click', () => {
+    try {
+      const yaml = serializeBase16(state.palettes[mode], mode);
+      download(`tone-base16-${mode}.yaml`, yaml, 'application/yaml;charset=utf-8');
+      toast(`Base16-style ${mode} palette downloaded.`);
+    } catch (error) {
+      toast(`Could not export Base16-style ${mode}: ${error.message}`);
+    }
+    closeExport();
+    $('export-toggle').focus();
+  });
+}
 
 render();
 if (persistenceWarning) toast('Saved colors could not be loaded. Export your palette to keep it.');
