@@ -5,6 +5,15 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@html-eslint/eslint-plugin": "^0.67.0",
+    "@html-eslint/parser": "^0.67.0",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0"
   }
 }
