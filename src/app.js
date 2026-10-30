@@ -142,7 +142,7 @@ function render() {
   const colors = state.palettes[state.mode];
   const color = colors[state.selected];
   const currentHex = okhslToHex(color);
-  const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview'), $('mini-preview')];
+  const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview')];
   const root = document.documentElement;
   renderSiteTheme();
   for (const [role, name] of ROLES) {
@@ -514,33 +514,37 @@ $('reset-button').addEventListener('click', () => {
   toast('Both palettes have been reset.');
 });
 
-// The small-screen preview uses the same colors and the same full previews; it
-// does not duplicate the editor state or the preview DOM.
-const previewPane = $('preview-pane');
-const previewToggle = $('preview-toggle');
-const previewScroll = $('preview-scroll');
-function setPreviewExpanded(expanded) {
-  previewPane.setAttribute('data-expanded', String(expanded));
-  previewToggle.setAttribute('aria-expanded', String(expanded));
-  previewToggle.textContent = expanded ? 'Collapse preview ↓' : 'Expand preview ↑';
-}
-previewToggle.addEventListener('click', () => {
-  setPreviewExpanded(previewToggle.getAttribute('aria-expanded') !== 'true');
-});
-// If keyboard focus moves back to the editor, don't leave it behind the
-// expanded mobile panel. Focus itself stays on the user's chosen control.
-document.addEventListener('focusin', (event) => {
-  if (previewToggle.getAttribute('aria-expanded') === 'true' && window.matchMedia('(max-width: 900px)').matches && !previewPane.contains(event.target)) {
-    setPreviewExpanded(false);
+// Both preview panels use the same palette, including while hidden.
+const previewTabsAndPanels = [
+  { tab: $('tab-app'), panel: $('app-preview-section') },
+  { tab: $('tab-code'), panel: $('code-preview-section') }
+];
+function selectPreview(index) {
+  for (const [position, { tab, panel }] of previewTabsAndPanels.entries()) {
+    const selected = position === index;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.setAttribute('tabindex', selected ? '0' : '-1');
+    panel.hidden = !selected;
   }
-});
-for (const [button, section] of [['jump-app', 'app-preview-section'], ['jump-code', 'code-preview-section']]) {
-  $(button).addEventListener('click', () => {
-    const target = $(section);
-    previewScroll.scrollTop += target.getBoundingClientRect().top - previewScroll.getBoundingClientRect().top;
-    target.focus({ preventScroll: true });
+}
+for (const [index, { tab }] of previewTabsAndPanels.entries()) {
+  tab.addEventListener('click', () => {
+    tab.focus({ preventScroll: true });
+    selectPreview(index);
+  });
+  tab.addEventListener('keydown', (event) => {
+    let next;
+    if (event.key === 'ArrowRight') next = (index + 1) % previewTabsAndPanels.length;
+    else if (event.key === 'ArrowLeft') next = (index + previewTabsAndPanels.length - 1) % previewTabsAndPanels.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = previewTabsAndPanels.length - 1;
+    else return;
+    event.preventDefault();
+    previewTabsAndPanels[next].tab.focus({ preventScroll: true });
+    selectPreview(next);
   });
 }
+selectPreview(0);
 
 function cssExport() {
   const block = (mode, selector) => `${selector} {\n${ROLES.map(([role]) => `  --color-${role}: ${okhslToHex(state.palettes[mode][role])};`).join('\n')}\n}`;
@@ -652,9 +656,6 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('export-menu').hidden) {
     closeExport();
     $('export-toggle').focus();
-  } else if (event.key === 'Escape' && previewToggle.getAttribute('aria-expanded') === 'true' && window.matchMedia('(max-width: 900px)').matches) {
-    setPreviewExpanded(false);
-    previewToggle.focus();
   }
 });
 $('copy-css').addEventListener('click', async () => {

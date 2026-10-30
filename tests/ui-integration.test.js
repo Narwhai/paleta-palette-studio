@@ -19,23 +19,20 @@ class Element {
     this.hidden = false;
     this.disabled = false;
     this.validationMessage = '';
-    this.scrollTop = 0;
-    this.top = 0;
     this.open = false;
   }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatch('close'); }
   append(...children) { this.children.push(...children); }
   remove() {}
-  contains(element) { return this === element || this.children.some((child) => child.contains(element)); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return this.attributes[name]; }
   addEventListener(type, listener) {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
     this.listeners.get(type).push(listener);
   }
-  dispatch(type) {
-    return Promise.all((this.listeners.get(type) || []).map((listener) => listener({ type, target: this })));
+  dispatch(type, properties = {}) {
+    return Promise.all((this.listeners.get(type) || []).map((listener) => listener({ type, target: this, ...properties })));
   }
   click() {
     if (this.disabled) return;
@@ -45,7 +42,6 @@ class Element {
   setCustomValidity(message) { this.validationMessage = message; }
   reportValidity() { return !this.validationMessage; }
   focus() { document.activeElement = this; }
-  getBoundingClientRect() { return { top: this.top }; }
   closest() { return null; }
   querySelector(selector) { return selector === '.preview-app' ? this.previewApp : null; }
 }
@@ -85,17 +81,19 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /best directional ratio and the selected color's actual minimum contrast/);
   assert.match(html, /The contrast check above shows only BG and BG 2/);
   assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1])).size, [...html.matchAll(/\bid="([^"]+)"/g)].length, 'preview structure has no duplicate IDs');
-  assert.match(html, /id="preview-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="preview-scroll"/);
-  assert.match(html, /id="preview-scroll"[^>]*role="region"[^>]*tabindex="0"/);
-  const compactColors = html.match(/<span class="mini-colors"[^>]*>(.*?)<\/span>/);
-  assert.ok(compactColors, 'compact preview contains accent indicators');
-  assert.equal((compactColors[1].match(/<i><\/i>/g) || []).length, 8, 'all eight accents have compact indicators');
-  for (const [index, role] of ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'].entries()) {
-    const selector = index === 0 ? 'i' : `i:nth-child\\(${index + 1}\\)`;
-    assert.match(css, new RegExp(`\\.mini-colors ${selector}\\{[^}]*background:var\\(--${role}\\)`), `compact indicator ${index + 1} uses ${role}`);
-  }
-  assert.doesNotMatch(css, /\.mini-colors(?:\s+i(?::nth-child\([^)]*\))?)?\s*\{[^}]*display\s*:\s*none/, 'compact indicators must not be hidden at narrow widths');
-  assert.ok(css.includes('.preview-pane:not([data-expanded="true"]) .preview-scroll'), 'compact state hides the full preview only on narrow screens');
+  assert.ok(html.indexOf('class="palette-panel panel"') < html.indexOf('class="editor-panel panel"'));
+  assert.ok(html.indexOf('class="editor-panel panel"') < html.indexOf('class="preview-pane"'), 'the preview follows both editing panels');
+  assert.match(html, /<h2 id="editor-title">Edit color<\/h2>/);
+  assert.match(css, /\.studio-layout\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'the preview occupies the full-width row');
+  assert.match(css, /\.studio-layout\{[^}]*padding-top:[1-9]\d*px/, 'the editing panels have space below the header');
+  assert.match(css, /\.workspace\{display:grid;grid-template-columns:minmax\(0,1\.1fr\) minmax\(0,\.9fr\)/, 'editing panels share the first row');
+  assert.match(css, /@media\(max-width:700px\).*?\.workspace\{grid-template-columns:1fr\}/s, 'editing panels stack on narrow screens');
+  assert.doesNotMatch(css, /\.preview-pane\{[^}]*position:(?:fixed|sticky)/, 'the preview remains below the editor');
+  assert.match(html, /id="preview-tabs"[^>]*role="tablist"[^>]*aria-label="Choose preview"/);
+  assert.match(html, /id="tab-app"[^>]*role="tab"[^>]*aria-selected="true"[^>]*aria-controls="app-preview-section"[^>]*tabindex="0"/);
+  assert.match(html, /id="tab-code"[^>]*role="tab"[^>]*aria-selected="false"[^>]*aria-controls="code-preview-section"[^>]*tabindex="-1"/);
+  assert.match(html, /id="app-preview-section"[^>]*role="tabpanel"[^>]*aria-labelledby="tab-app"[^>]*tabindex="0"/);
+  assert.match(html, /id="code-preview-section"[^>]*role="tabpanel"[^>]*aria-labelledby="tab-code"[^>]*tabindex="0"[^>]*hidden/);
   assert.match(html, /<pre\s+class="syntax-code"[^>]*tabindex="0"[^>]*><code>/);
   for (const [token, role] of Object.entries({
     comment: 'tx-3', keyword: 'purple', string: 'green', function: 'blue', type: 'yellow',
@@ -110,9 +108,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     return elements.get(id);
   };
   byId('theme-preview').previewApp = new Element();
-  byId('preview-toggle').setAttribute('aria-expanded', 'false');
-  byId('preview-pane').setAttribute('data-expanded', 'false');
-  byId('preview-pane').append(byId('preview-toggle'), byId('preview-scroll'));
+  byId('preview-tabs').append(byId('tab-app'), byId('tab-code'));
+  byId('preview-pane').append(byId('preview-tabs'), byId('app-preview-section'), byId('code-preview-section'));
   const documentListeners = new Map();
   const storage = new Map();
   let clipboard = '';
@@ -128,7 +125,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     documentElement: new Element('html'),
     downloads
   });
-  install('window', { confirm: () => true, matchMedia: () => ({ matches: true }) });
+  install('window', { confirm: () => true });
   install('localStorage', {
     getItem: (key) => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value)
@@ -143,7 +140,6 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
       for (const [role, color] of Object.entries(saved().palettes[mode])) {
         const expected = okhslToHex(color);
         assert.equal(byId('code-preview').style.getPropertyValue(`--${role}`), expected, `code preview ${mode} ${role}`);
-        assert.equal(byId('mini-preview').style.getPropertyValue(`--${role}`), expected, `compact preview ${mode} ${role}`);
         assert.equal(byId('theme-preview').previewApp.style.getPropertyValue(`--${role}`), expected, `original preview ${mode} ${role}`);
         assert.equal(document.documentElement.style.getPropertyValue(`--site-${role}`), expected, `site theme ${mode} ${role}`);
       }
@@ -155,29 +151,44 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(document.documentElement.getAttribute('data-site-mode'), 'light');
     assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'true');
     assert.equal(document.documentElement.style.getPropertyValue('--site-bg'), byId('theme-preview').previewApp.style.getPropertyValue('--bg'));
-    byId('preview-toggle').click();
-    assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'true');
-    assert.equal(byId('preview-pane').getAttribute('data-expanded'), 'true');
-    byId('preview-scroll').top = 100;
-    byId('code-preview-section').top = 500;
-    byId('jump-code').click();
-    assert.equal(byId('preview-scroll').scrollTop, 400, 'jump scrolls the preview pane rather than the page');
-    assert.equal(document.activeElement, byId('code-preview-section'));
-    byId('export-menu').hidden = true;
-    documentListeners.get('keydown')({ key: 'Escape' });
-    assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'false');
-    assert.equal(byId('preview-pane').getAttribute('data-expanded'), 'false');
-    assert.equal(document.activeElement, byId('preview-toggle'), 'collapse restores focus');
-    byId('preview-toggle').click();
-    documentListeners.get('focusin')({ target: byId('preview-toggle') });
-    assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'true', 'focus within the pane keeps it expanded');
+    const appTab = byId('tab-app');
+    const codeTab = byId('tab-code');
+    const appPanel = byId('app-preview-section');
+    const codePanel = byId('code-preview-section');
+    const assertSelectedPreview = (selectedTab, selectedPanel, otherTab, otherPanel) => {
+      assert.equal(selectedTab.getAttribute('aria-selected'), 'true');
+      assert.equal(selectedTab.getAttribute('tabindex'), '0');
+      assert.equal(selectedPanel.hidden, false);
+      assert.equal(otherTab.getAttribute('aria-selected'), 'false');
+      assert.equal(otherTab.getAttribute('tabindex'), '-1');
+      assert.equal(otherPanel.hidden, true);
+    };
+    const pressTabKey = (tab, key) => {
+      let prevented = false;
+      tab.dispatch('keydown', { key, preventDefault() { prevented = true; } });
+      return prevented;
+    };
+    assertSelectedPreview(appTab, appPanel, codeTab, codePanel);
+    codeTab.click();
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
+    assert.equal(document.activeElement, codeTab, 'focus stays on the selected tab');
+    assert.equal(pressTabKey(codeTab, 'ArrowRight'), true);
+    assertSelectedPreview(appTab, appPanel, codeTab, codePanel);
+    assert.equal(document.activeElement, appTab, 'right arrow wraps to the first tab');
+    assert.equal(pressTabKey(appTab, 'ArrowLeft'), true);
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
+    assert.equal(document.activeElement, codeTab, 'left arrow wraps to the last tab');
+    assert.equal(pressTabKey(codeTab, 'Home'), true);
+    assertSelectedPreview(appTab, appPanel, codeTab, codePanel);
+    assert.equal(document.activeElement, appTab);
+    assert.equal(pressTabKey(appTab, 'End'), true);
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
+    assert.equal(document.activeElement, codeTab);
+    assert.equal(pressTabKey(codeTab, 'Tab'), false, 'unrelated keys are not intercepted');
+    assert.equal(storage.size, 0, 'changing the preview does not change the palette');
     byId('hue').focus();
-    documentListeners.get('focusin')({ target: byId('hue') });
-    assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'false', 'focus returning to the editor closes the expanded pane');
-    assert.equal(document.activeElement, byId('hue'), 'editor focus is preserved');
-    byId('preview-toggle').click();
-    byId('preview-toggle').click();
-    assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'false');
+    assert.equal(document.activeElement, byId('hue'), 'returning to the editor preserves focus');
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
 
     byId('accent-swatches').children[0].click();
     assert.equal(byId('selected-name').textContent, 'Red');
@@ -185,6 +196,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     slider.value = '200';
     slider.dispatch('input');
     assert.equal(saved().palettes.light.red.h, 200);
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
     assert.equal(byId('theme-preview').previewApp.style.getPropertyValue('--red'), byId('hex-input').value.toLowerCase());
     assertPreviewsMatchPalette('light');
 
@@ -201,6 +213,12 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     byId('mode-dark').click();
     assert.equal(document.documentElement.getAttribute('data-site-mode'), 'dark');
     assertPreviewsMatchPalette('dark');
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
+    appTab.click();
+    assertSelectedPreview(appTab, appPanel, codeTab, codePanel);
+    assertPreviewsMatchPalette('dark');
+    codeTab.click();
+    assertSelectedPreview(codeTab, codePanel, appTab, appPanel);
     byId('mode-light').click();
     byId('site-theme-toggle').click();
     assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette');
@@ -1032,9 +1050,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
       elements.clear();
       for (const match of html.matchAll(/\bid="([^"]+)"/g)) elements.set(match[1], new Element());
       byId('theme-preview').previewApp = new Element();
-      byId('preview-toggle').setAttribute('aria-expanded', 'false');
-      byId('preview-pane').setAttribute('data-expanded', 'false');
-      byId('preview-pane').append(byId('preview-toggle'), byId('preview-scroll'));
+      byId('preview-tabs').append(byId('tab-app'), byId('tab-code'));
+      byId('preview-pane').append(byId('preview-tabs'), byId('app-preview-section'), byId('code-preview-section'));
       document.documentElement = new Element('html');
       document.body = new Element('body');
     };

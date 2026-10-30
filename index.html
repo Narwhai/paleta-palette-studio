@@ -152,12 +152,11 @@
                     </section>
 
                     <section class="editor-panel panel" aria-labelledby="editor-title">
-                        <!-- <div class="section-heading"> -->
-                        <!-- <div> -->
-                        <!--     <h2 id="editor-title"></h2> -->
-                        <!-- </div> -->
-                        <!-- <span class="editor-icon" aria-hidden="true">↗</span> -->
-                        <!-- </div> -->
+                        <div class="section-heading">
+                            <div>
+                                <h2 id="editor-title">Edit color</h2>
+                            </div>
+                        </div>
                         <div class="selected-color">
                             <div
                                 id="selected-sample"
@@ -277,39 +276,40 @@
                     class="preview-pane"
                     id="preview-pane"
                     aria-label="Live previews"
-                    data-expanded="false"
                 >
                     <div class="preview-pane-bar">
                         <div class="preview-pane-label"><span class="small-dot"></span><span>LIVE PREVIEW</span></div>
                         <div
-                            class="mini-preview"
-                            id="mini-preview"
-                            aria-label="Live palette sample"
-                        ><strong>Aa</strong><span>Color in context</span><span class="mini-colors" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-                        <button
-                            class="preview-toggle"
-                            id="preview-toggle"
-                            type="button"
-                            aria-expanded="false"
-                            aria-controls="preview-scroll"
-                        >Expand preview <span aria-hidden="true">↑</span></button>
-                        <nav class="preview-jumps" aria-label="Jump to preview">
-                            <button type="button" id="jump-app">App preview</button>
-                            <button type="button" id="jump-code">Code preview</button>
-                        </nav>
+                            class="preview-tabs"
+                            id="preview-tabs"
+                            role="tablist"
+                            aria-label="Choose preview"
+                        >
+                            <button
+                                type="button"
+                                id="tab-app"
+                                role="tab"
+                                aria-selected="true"
+                                aria-controls="app-preview-section"
+                                tabindex="0"
+                            >App preview</button>
+                            <button
+                                type="button"
+                                id="tab-code"
+                                role="tab"
+                                aria-selected="false"
+                                aria-controls="code-preview-section"
+                                tabindex="-1"
+                            >Code preview</button>
+                        </div>
                     </div>
-                    <div
-                        class="preview-scroll"
-                        id="preview-scroll"
-                        role="region"
-                        aria-label="Live previews"
-                        tabindex="0"
-                    >
+                    <div class="preview-body">
                         <section
                             class="preview-section"
                             id="app-preview-section"
-                            aria-labelledby="preview-title"
-                            tabindex="-1"
+                            role="tabpanel"
+                            aria-labelledby="tab-app"
+                            tabindex="0"
                         >
                             <div class="preview-heading">
                                 <div>
@@ -365,8 +365,10 @@
                         <section
                             class="preview-section syntax-section"
                             id="code-preview-section"
-                            aria-labelledby="syntax-title"
-                            tabindex="-1"
+                            role="tabpanel"
+                            aria-labelledby="tab-code"
+                            tabindex="0"
+                            hidden
                         >
                             <div class="syntax-preview" id="code-preview">
                                 <div class="syntax-toolbar">
