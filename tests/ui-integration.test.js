@@ -92,9 +92,9 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     const selector = index === 0 ? 'i' : `i:nth-child\\(${index + 1}\\)`;
     assert.match(css, new RegExp(`\\.mini-colors ${selector}\\{[^}]*background:var\\(--${role}\\)`), `compact indicator ${index + 1} uses ${role}`);
   }
-  assert.doesNotMatch(css, /\.mini-colors(?:\s+i(?:\:nth-child\([^)]*\))?)?\s*\{[^}]*display\s*:\s*none/, 'compact indicators must not be hidden at narrow widths');
+  assert.doesNotMatch(css, /\.mini-colors(?:\s+i(?::nth-child\([^)]*\))?)?\s*\{[^}]*display\s*:\s*none/, 'compact indicators must not be hidden at narrow widths');
   assert.ok(css.includes('.preview-pane:not([data-expanded="true"]) .preview-scroll'), 'compact state hides the full preview only on narrow screens');
-  assert.match(html, /<pre class="syntax-code"[^>]*tabindex="0"[^>]*><code>/);
+  assert.match(html, /<pre\s+class="syntax-code"[^>]*tabindex="0"[^>]*><code>/);
   for (const [token, role] of Object.entries({
     comment: 'tx-3', keyword: 'purple', string: 'green', function: 'blue', type: 'yellow',
     property: 'cyan', number: 'orange', constant: 'magenta', operator: 'red'

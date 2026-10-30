@@ -1,79 +1,389 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f3ed">
-  <title>Tone — a palette studio</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="#top" aria-label="Tone, palette studio home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>tone<span class="brand-period">.</span></span></a>
-    <div class="topbar-center">A LITTLE STUDIO FOR COLOR <span>✳</span></div>
-    <div class="top-actions"><button class="button button-quiet" id="reset-button" type="button">Reset</button><button class="button button-import" id="import-button" type="button" aria-describedby="import-help">Import JSON <span id="import-help">Replaces both modes</span></button><input id="import-file" type="file" accept=".json,application/json" tabindex="-1" hidden><div class="export-wrap"><button class="button button-dark" id="export-toggle" type="button" aria-expanded="false" aria-controls="export-menu">Export palette <span aria-hidden="true">↗</span></button><div class="export-menu" id="export-menu" hidden><p>TAKE YOUR COLORS WITH YOU</p><button type="button" id="copy-css">Copy CSS variables <span>↗</span></button><button type="button" id="download-css">Download CSS <span>↓</span></button><button type="button" id="download-json">Download JSON <span>↓</span></button><button type="button" id="download-base16-light">Download Base16-style light <span>↓</span></button><button type="button" id="download-base16-dark">Download Base16-style dark <span>↓</span></button></div></div></div>
-  </header>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- eslint-disable-next-line @html-eslint/use-baseline -->
+        <meta name="theme-color" content="#f5f3ed">
+        <title>Tone — a palette studio</title>
+        <link rel="stylesheet" href="./style.css">
+    </head>
+    <body>
+        <header class="topbar">
+            <a
+                class="brand"
+                href="#top"
+                aria-label="Tone, palette studio home"
+            ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>tone<span class="brand-period">.</span></span></a>
+            <div class="topbar-center">A LITTLE STUDIO FOR COLOR <span>✳</span></div>
+            <div class="top-actions">
+                <button
+                    class="button button-quiet"
+                    id="reset-button"
+                    type="button"
+                >Reset</button>
+                <button
+                    class="button button-import"
+                    id="import-button"
+                    type="button"
+                    aria-describedby="import-help"
+                >Import JSON <span id="import-help">Replaces both modes</span></button>
+                <input
+                    id="import-file"
+                    type="file"
+                    accept=".json,application/json"
+                    tabindex="-1"
+                    hidden
+                >
+                <div class="export-wrap">
+                    <button
+                        class="button button-dark"
+                        id="export-toggle"
+                        type="button"
+                        aria-expanded="false"
+                        aria-controls="export-menu"
+                    >Export palette <span aria-hidden="true">↗</span></button>
+                    <div
+                        class="export-menu"
+                        id="export-menu"
+                        hidden
+                    >
+                        <p>TAKE YOUR COLORS WITH YOU</p>
+                        <button type="button" id="copy-css">Copy CSS variables <span>↗</span></button>
+                        <button type="button" id="download-css">Download CSS <span>↓</span></button>
+                        <button type="button" id="download-json">Download JSON <span>↓</span></button>
+                        <button type="button" id="download-base16-light">Download Base16-style light <span>↓</span></button>
+                        <button type="button" id="download-base16-dark">Download Base16-style dark <span>↓</span></button>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-  <main id="top" class="page">
-    <div class="notice import-message" id="import-message" role="status" aria-live="polite" hidden></div>
-    <div class="intro">
-      <div><div class="eyebrow"><span class="small-dot"></span> YOUR COLOR WORKSPACE <span class="eyebrow-divider">/</span> OKHSL</div><h1>A little more <em>color.</em></h1><p>Build a thoughtful palette, one color at a time.</p></div>
-      <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div>
-    </div>
+        <main id="top" class="page">
+            <div
+                class="notice import-message"
+                id="import-message"
+                role="status"
+                aria-live="polite"
+                hidden
+            ></div>
+            <div class="intro">
+                <div>
+                    <div class="eyebrow"><span class="small-dot"></span> YOUR COLOR WORKSPACE <span class="eyebrow-divider">/</span> OKHSL</div>
+                    <h1>A little more <em>color.</em></h1>
+                    <p>Build a thoughtful palette, one color at a time.</p>
+                </div>
+                <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div>
+            </div>
 
-    <div class="studio-layout">
-    <div class="workspace">
-      <section class="palette-panel panel" aria-labelledby="palette-title">
-        <div class="section-heading palette-heading"><div><span class="overline">01 / YOUR PALETTE</span><h2 id="palette-title">The colors</h2></div><div class="mode-switch" role="group" aria-label="Editing mode"><button type="button" id="mode-light" aria-pressed="true">☼ <span>Light</span></button><button type="button" id="mode-dark" aria-pressed="false">☾ <span>Dark</span></button></div></div>
-        <div class="palette-intro"><span id="palette-description">Light mode · 16 colors</span><span>Select a swatch to edit <span aria-hidden="true">↗</span></span></div>
-        <div class="generate-card">
-          <strong>Make the matching mode</strong>
-          <p id="generate-help">Generate dark from the current light palette. This replaces the dark palette.</p>
-          <div class="generate-actions"><button type="button" id="generate-button" class="button button-outline" aria-describedby="generate-help">Generate dark from light</button><button type="button" id="undo-generation-button" class="button button-outline" aria-describedby="undo-generation-help" disabled>↶ Undo generation</button></div>
-          <p id="undo-generation-help">Undo restores this mode's colors and optimization undo from before generation, removing later edits. Undo is cleared on import, reset, or reload.</p>
-          <div class="notice" id="generation-message" role="status" aria-live="polite" hidden></div>
-        </div>
-        <div class="swatch-section"><div class="group-heading"><span>BASE COLORS</span><span>01 — 08</span></div><button type="button" class="button button-outline base-generate-button" id="base-generate-button" aria-haspopup="dialog">Generate base colors ↗</button><div class="swatch-grid" id="base-swatches"></div></div>
-        <div class="swatch-section accent-section"><div class="group-heading"><span>ACCENT COLORS</span><span>09 — 16</span></div><div class="swatch-grid" id="accent-swatches"></div></div>
-        <div class="palette-footer"><span class="sparkle">✳</span><p>Good colors play well together.<br><span>Fine-tune each one to make it yours.</span></p></div>
-      </section>
+            <div class="studio-layout">
+                <div class="workspace">
+                    <section class="palette-panel panel" aria-labelledby="palette-title">
+                        <div class="section-heading palette-heading">
+                            <div>
+                                <span class="overline">01 / YOUR PALETTE</span>
+                                <h2 id="palette-title">The colors</h2>
+                            </div>
+                            <div
+                                class="mode-switch"
+                                role="group"
+                                aria-label="Editing mode"
+                            >
+                                <button
+                                    type="button"
+                                    id="mode-light"
+                                    aria-pressed="true"
+                                >☼ <span>Light</span></button>
+                                <button
+                                    type="button"
+                                    id="mode-dark"
+                                    aria-pressed="false"
+                                >☾ <span>Dark</span></button>
+                            </div>
+                        </div>
+                        <div class="palette-intro"><span id="palette-description">Light mode · 16 colors</span><span>Select a swatch to edit <span aria-hidden="true">↗</span></span></div>
+                        <div class="generate-card">
+                            <strong>Make the matching mode</strong>
+                            <p id="generate-help">Generate dark from the current light palette. This replaces the dark palette.</p>
+                            <div class="generate-actions">
+                                <button
+                                    type="button"
+                                    id="generate-button"
+                                    class="button button-outline"
+                                    aria-describedby="generate-help"
+                                >Generate dark from light</button>
+                                <button
+                                    type="button"
+                                    id="undo-generation-button"
+                                    class="button button-outline"
+                                    aria-describedby="undo-generation-help"
+                                    disabled
+                                >↶ Undo generation</button>
+                            </div>
+                            <p id="undo-generation-help">Undo restores this mode's colors and optimization undo from before generation, removing later edits. Undo is cleared on import, reset, or reload.</p>
+                            <div
+                                class="notice"
+                                id="generation-message"
+                                role="status"
+                                aria-live="polite"
+                                hidden
+                            ></div>
+                        </div>
+                        <div class="swatch-section">
+                            <div class="group-heading"><span>BASE COLORS</span><span>01 — 08</span></div>
+                            <button
+                                type="button"
+                                class="button button-outline base-generate-button"
+                                id="base-generate-button"
+                                aria-haspopup="dialog"
+                            >Generate base colors ↗</button>
+                            <div class="swatch-grid" id="base-swatches"></div>
+                        </div>
+                        <div class="swatch-section accent-section">
+                            <div class="group-heading"><span>ACCENT COLORS</span><span>09 — 16</span></div>
+                            <div class="swatch-grid" id="accent-swatches"></div>
+                        </div>
+                        <div class="palette-footer">
+                            <span class="sparkle">✳</span>
+                            <p>Good colors play well together.<br><span>Fine-tune each one to make it yours.</span></p>
+                        </div>
+                    </section>
 
-      <section class="editor-panel panel" aria-labelledby="editor-title">
-        <div class="section-heading"><div><span class="overline">02 / FINE TUNE</span><h2 id="editor-title">Make it yours</h2></div><span class="editor-icon" aria-hidden="true">↗</span></div>
-        <div class="selected-color"><div id="selected-sample" class="selected-sample" aria-hidden="true"><span>✳</span></div><div class="selected-info"><span class="overline">SELECTED COLOR</span><strong id="selected-name">Background</strong><span id="selected-role">BASE / BG</span></div><label class="hex-control" for="hex-input"><span>HEX</span><input id="hex-input" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-describedby="hex-help"><span class="hex-error" id="hex-help"></span></label></div>
-        <div class="slider-intro"><div><span class="overline">COLOR SPACE</span><strong>OKHSL <span>✳</span></strong></div><p>Perceptually smooth color, made for humans.</p></div>
-        <div class="sliders">
-          <div class="slider-row"><div class="slider-label"><label for="hue">Hue <span>/ the color</span></label><output id="hue-value" for="hue"></output></div><input id="hue" type="range" min="0" max="360" step="1" aria-describedby="hue-help"><div class="slider-ends"><span id="hue-help">Hue spectrum reference</span><span>360°</span></div></div>
-          <div class="slider-row"><div class="slider-label"><label for="saturation">Saturation <span>/ the intensity</span></label><output id="saturation-value" for="saturation"></output></div><input id="saturation" type="range" min="0" max="100" step="1"><div class="slider-ends"><span>Muted</span><span>Vibrant</span></div></div>
-          <div class="slider-row"><div class="slider-label"><label for="lightness">Lightness <span>/ the brightness</span></label><output id="lightness-value" for="lightness"></output></div><input id="lightness" type="range" min="0" max="100" step="1"><div class="slider-ends"><span>Dark</span><span>Light</span></div></div>
-        </div>
-        <div class="contrast-card"><div><span class="overline">CONTRAST CHECK</span><strong id="contrast-title">Against background</strong><p>Selected color against BG and BG 2.</p></div><div class="contrast-values"><div><span>BG</span><strong id="contrast-bg">—</strong></div><div><span>BG 2</span><strong id="contrast-bg2">—</strong></div></div></div>
-        <div class="optimize-card"><div class="optimize-icon" aria-hidden="true">✧</div><div class="optimize-copy"><strong>A little help with contrast</strong><p>Adjust this mode's colors using role-based WCAG contrast targets. You can keep refining after.</p><p id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits.</p></div><div class="optimize-actions"><button type="button" id="optimize-button" class="button button-outline">Optimize <span aria-hidden="true">↗</span></button><button type="button" id="undo-button" class="button button-outline" aria-describedby="undo-help" disabled>↶ Undo optimization</button></div></div>
-        <div class="optimizer-bottom"><span>AN APPROXIMATION, NOT A GUARANTEE</span></div>
-        <details class="optimizer-details"><summary>How optimization works</summary><p>First, interface roles are separated from BG: BG 2 at 1.04:1, UI at 1.08:1, UI 2 at 1.14:1, and UI 3 at 1.22:1. Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4.5:1, respectively. Text 3 at 3:1 and each accent at 4.5:1 are checked against BG and BG 2. UI 2 and UI 3 are treated as borders or details, not text backgrounds. The solver seeks colors no lighter than their checked backgrounds in light mode, and no darker in dark mode. If a target cannot be met in that direction, the selected color is kept; the warning reports both the best directional ratio and the selected color's actual minimum contrast. The contrast check above shows only BG and BG 2. This WCAG-based approach approximates the article’s method, not its exact perceptual algorithm, and is not a universal accessibility guarantee. Check your actual usage.</p></details>
-        <div class="notice" id="optimizer-message" role="status" hidden></div>
-      </section>
-    </div>
+                    <section class="editor-panel panel" aria-labelledby="editor-title">
+                        <div class="section-heading">
+                            <div>
+                                <span class="overline">02 / FINE TUNE</span>
+                                <h2 id="editor-title">Make it yours</h2>
+                            </div>
+                            <span class="editor-icon" aria-hidden="true">↗</span>
+                        </div>
+                        <div class="selected-color">
+                            <div
+                                id="selected-sample"
+                                class="selected-sample"
+                                aria-hidden="true"
+                            ><span>✳</span></div>
+                            <div class="selected-info"><span class="overline">SELECTED COLOR</span><strong id="selected-name">Background</strong><span id="selected-role">BASE / BG</span></div>
+                            <label class="hex-control" for="hex-input">
+                                <span>HEX</span>
+                                <input
+                                    id="hex-input"
+                                    type="text"
+                                    maxlength="7"
+                                    spellcheck="false"
+                                    autocomplete="off"
+                                    aria-describedby="hex-help"
+                                >
+                                <span class="hex-error" id="hex-help"></span>
+                            </label>
+                        </div>
+                        <div class="slider-intro">
+                            <div><span class="overline">COLOR SPACE</span><strong>OKHSL <span>✳</span></strong></div>
+                            <p>Perceptually smooth color, made for humans.</p>
+                        </div>
+                        <div class="sliders">
+                            <div class="slider-row">
+                                <div class="slider-label">
+                                    <label for="hue">Hue <span>/ the color</span></label>
+                                    <output id="hue-value" for="hue"></output>
+                                </div>
+                                <input
+                                    id="hue"
+                                    type="range"
+                                    min="0"
+                                    max="360"
+                                    step="1"
+                                    aria-describedby="hue-help"
+                                >
+                                <div class="slider-ends"><span id="hue-help">Hue spectrum reference</span><span>360°</span></div>
+                            </div>
+                            <div class="slider-row">
+                                <div class="slider-label">
+                                    <label for="saturation">Saturation <span>/ the intensity</span></label>
+                                    <output id="saturation-value" for="saturation"></output>
+                                </div>
+                                <input
+                                    id="saturation"
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                >
+                                <div class="slider-ends"><span>Muted</span><span>Vibrant</span></div>
+                            </div>
+                            <div class="slider-row">
+                                <div class="slider-label">
+                                    <label for="lightness">Lightness <span>/ the brightness</span></label>
+                                    <output id="lightness-value" for="lightness"></output>
+                                </div>
+                                <input
+                                    id="lightness"
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                >
+                                <div class="slider-ends"><span>Dark</span><span>Light</span></div>
+                            </div>
+                        </div>
+                        <div class="contrast-card">
+                            <div>
+                                <span class="overline">CONTRAST CHECK</span><strong id="contrast-title">Against background</strong>
+                                <p>Selected color against BG and BG 2.</p>
+                            </div>
+                            <div class="contrast-values">
+                                <div><span>BG</span><strong id="contrast-bg">—</strong></div>
+                                <div><span>BG 2</span><strong id="contrast-bg2">—</strong></div>
+                            </div>
+                        </div>
+                        <div class="optimize-card">
+                            <div class="optimize-icon" aria-hidden="true">✧</div>
+                            <div class="optimize-copy">
+                                <strong>A little help with contrast</strong>
+                                <p>Adjust this mode's colors using role-based WCAG contrast targets. You can keep refining after.</p>
+                                <p id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits.</p>
+                            </div>
+                            <div class="optimize-actions">
+                                <button
+                                    type="button"
+                                    id="optimize-button"
+                                    class="button button-outline"
+                                >Optimize <span aria-hidden="true">↗</span></button>
+                                <button
+                                    type="button"
+                                    id="undo-button"
+                                    class="button button-outline"
+                                    aria-describedby="undo-help"
+                                    disabled
+                                >↶ Undo optimization</button>
+                            </div>
+                        </div>
+                        <div class="optimizer-bottom"><span>AN APPROXIMATION, NOT A GUARANTEE</span></div>
+                        <details class="optimizer-details">
+                            <summary>How optimization works</summary>
+                            <p>First, interface roles are separated from BG: BG 2 at 1.04:1, UI at 1.08:1, UI 2 at 1.14:1, and UI 3 at 1.22:1. Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4.5:1, respectively. Text 3 at 3:1 and each accent at 4.5:1 are checked against BG and BG 2. UI 2 and UI 3 are treated as borders or details, not text backgrounds. The solver seeks colors no lighter than their checked backgrounds in light mode, and no darker in dark mode. If a target cannot be met in that direction, the selected color is kept; the warning reports both the best directional ratio and the selected color's actual minimum contrast. The contrast check above shows only BG and BG 2. This WCAG-based approach approximates the article’s method, not its exact perceptual algorithm, and is not a universal accessibility guarantee. Check your actual usage.</p>
+                        </details>
+                        <div
+                            class="notice"
+                            id="optimizer-message"
+                            role="status"
+                            hidden
+                        ></div>
+                    </section>
+                </div>
 
-    <aside class="preview-pane" id="preview-pane" aria-label="Live previews" data-expanded="false">
-      <div class="preview-pane-bar">
-        <div class="preview-pane-label"><span class="small-dot"></span><span>LIVE PREVIEW</span></div>
-        <div class="mini-preview" id="mini-preview" aria-label="Live palette sample"><strong>Aa</strong><span>Color in context</span><span class="mini-colors" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-        <button class="preview-toggle" id="preview-toggle" type="button" aria-expanded="false" aria-controls="preview-scroll">Expand preview <span aria-hidden="true">↑</span></button>
-        <nav class="preview-jumps" aria-label="Jump to preview"><button type="button" id="jump-app">App preview</button><button type="button" id="jump-code">Code preview</button></nav>
-      </div>
-      <div class="preview-scroll" id="preview-scroll" role="region" aria-label="Live previews" tabindex="0">
-    <section class="preview-section" id="app-preview-section" aria-labelledby="preview-title" tabindex="-1"><div class="preview-heading"><div><span class="overline">03 / SEE IT IN ACTION</span><h2 id="preview-title">The bigger picture<span>.</span></h2><p>Your palette, at work in a little imaginary space.</p></div><div class="preview-mode-label"><span class="small-dot"></span><span id="preview-mode">LIGHT MODE PREVIEW</span></div></div>
-      <div class="preview-frame" id="theme-preview"><div class="preview-app"><aside class="preview-sidebar"><div class="preview-app-brand"><span class="preview-brand-icon">✳</span> atelier <span class="preview-more">•••</span></div><div class="preview-nav-label">WORKSPACE</div><div class="preview-nav active">◫ <span>Overview</span><span class="preview-nav-arrow">↗</span></div><div class="preview-nav">▦ <span>Projects</span></div><div class="preview-nav">▤ <span>Notes</span></div><div class="preview-nav-label preview-space">YOUR COLLECTION</div><div class="preview-nav"><i class="preview-nav-dot red"></i> <span>Inspiration</span></div><div class="preview-nav"><i class="preview-nav-dot green"></i> <span>In progress</span></div><div class="preview-nav"><i class="preview-nav-dot blue"></i> <span>Archive</span></div><div class="preview-user"><span class="preview-avatar">S</span><span>Studio space<small>Personal workspace</small></span><span class="preview-user-more">⌄</span></div></aside>
-        <div class="preview-content"><div class="preview-topline"><span>Workspace <span class="preview-breadcrumb">/</span> Overview</span><span>✧ &nbsp; ◌ &nbsp; <b>S</b></span></div><div class="preview-main"><div class="preview-welcome"><div><span class="preview-kicker">YOUR CREATIVE SPACE <span>✳</span></span><h3>Ideas live here<span>.</span></h3><p>A little room to make something wonderful.</p></div><span class="preview-new">＋ &nbsp; New project</span></div><div class="preview-cards"><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon orange">◈</span><span>↗</span></div><small>THE BIG PICTURE</small><strong>Collect the good stuff.</strong><p>All the things worth keeping, in one place.</p><div class="preview-tags"><span class="tag-orange">Ideas</span><span class="tag-green">In progress</span></div></div><div class="preview-card"><div class="preview-card-top"><span class="preview-card-icon purple">✳</span><span>↗</span></div><small>THE LITTLE DETAILS</small><strong>Make room to explore.</strong><p>A thoughtful space for your next great idea.</p><div class="preview-tags"><span class="tag-blue">Notes</span><span class="tag-purple">Personal</span></div></div></div><div class="preview-bottom"><span>● &nbsp; Everything is looking good</span><span>Made with intention ✳</span></div></div></div></div></div>
-    </section>
+                <aside
+                    class="preview-pane"
+                    id="preview-pane"
+                    aria-label="Live previews"
+                    data-expanded="false"
+                >
+                    <div class="preview-pane-bar">
+                        <div class="preview-pane-label"><span class="small-dot"></span><span>LIVE PREVIEW</span></div>
+                        <div
+                            class="mini-preview"
+                            id="mini-preview"
+                            aria-label="Live palette sample"
+                        ><strong>Aa</strong><span>Color in context</span><span class="mini-colors" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+                        <button
+                            class="preview-toggle"
+                            id="preview-toggle"
+                            type="button"
+                            aria-expanded="false"
+                            aria-controls="preview-scroll"
+                        >Expand preview <span aria-hidden="true">↑</span></button>
+                        <nav class="preview-jumps" aria-label="Jump to preview">
+                            <button type="button" id="jump-app">App preview</button>
+                            <button type="button" id="jump-code">Code preview</button>
+                        </nav>
+                    </div>
+                    <div
+                        class="preview-scroll"
+                        id="preview-scroll"
+                        role="region"
+                        aria-label="Live previews"
+                        tabindex="0"
+                    >
+                        <section
+                            class="preview-section"
+                            id="app-preview-section"
+                            aria-labelledby="preview-title"
+                            tabindex="-1"
+                        >
+                            <div class="preview-heading">
+                                <div>
+                                    <span class="overline">03 / SEE IT IN ACTION</span>
+                                    <h2 id="preview-title">The bigger picture<span>.</span></h2>
+                                    <p>Your palette, at work in a little imaginary space.</p>
+                                </div>
+                                <div class="preview-mode-label"><span class="small-dot"></span><span id="preview-mode">LIGHT MODE PREVIEW</span></div>
+                            </div>
+                            <div class="preview-frame" id="theme-preview">
+                                <div class="preview-app">
+                                    <aside class="preview-sidebar">
+                                        <div class="preview-app-brand"><span class="preview-brand-icon">✳</span> atelier <span class="preview-more">•••</span></div>
+                                        <div class="preview-nav-label">WORKSPACE</div>
+                                        <div class="preview-nav active">◫ <span>Overview</span><span class="preview-nav-arrow">↗</span></div>
+                                        <div class="preview-nav">▦ <span>Projects</span></div>
+                                        <div class="preview-nav">▤ <span>Notes</span></div>
+                                        <div class="preview-nav-label preview-space">YOUR COLLECTION</div>
+                                        <div class="preview-nav"><i class="preview-nav-dot red"></i> <span>Inspiration</span></div>
+                                        <div class="preview-nav"><i class="preview-nav-dot green"></i> <span>In progress</span></div>
+                                        <div class="preview-nav"><i class="preview-nav-dot blue"></i> <span>Archive</span></div>
+                                        <div class="preview-user"><span class="preview-avatar">S</span><span>Studio space<small>Personal workspace</small></span><span class="preview-user-more">⌄</span></div>
+                                    </aside>
+                                    <div class="preview-content">
+                                        <div class="preview-topline"><span>Workspace <span class="preview-breadcrumb">/</span> Overview</span><span>✧ &nbsp; ◌ &nbsp; <b>S</b></span></div>
+                                        <div class="preview-main">
+                                            <div class="preview-welcome">
+                                                <div>
+                                                    <span class="preview-kicker">YOUR CREATIVE SPACE <span>✳</span></span>
+                                                    <h3>Ideas live here<span>.</span></h3>
+                                                    <p>A little room to make something wonderful.</p>
+                                                </div>
+                                                <span class="preview-new">＋ &nbsp; New project</span>
+                                            </div>
+                                            <div class="preview-cards">
+                                                <div class="preview-card">
+                                                    <div class="preview-card-top"><span class="preview-card-icon orange">◈</span><span>↗</span></div>
+                                                    <small>THE BIG PICTURE</small><strong>Collect the good stuff.</strong>
+                                                    <p>All the things worth keeping, in one place.</p>
+                                                    <div class="preview-tags"><span class="tag-orange">Ideas</span><span class="tag-green">In progress</span></div>
+                                                </div>
+                                                <div class="preview-card">
+                                                    <div class="preview-card-top"><span class="preview-card-icon purple">✳</span><span>↗</span></div>
+                                                    <small>THE LITTLE DETAILS</small><strong>Make room to explore.</strong>
+                                                    <p>A thoughtful space for your next great idea.</p>
+                                                    <div class="preview-tags"><span class="tag-blue">Notes</span><span class="tag-purple">Personal</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="preview-bottom"><span>● &nbsp; Everything is looking good</span><span>Made with intention ✳</span></div>
+                                        </div>
+                                    </div>
+                                </div></div>
+                        </section>
 
-    <section class="preview-section syntax-section" id="code-preview-section" aria-labelledby="syntax-title" tabindex="-1">
-      <div class="preview-heading"><div><span class="overline">04 / IN THE DETAILS</span><h2 id="syntax-title">A little code<span>.</span></h2><p>See how your colors read between the lines.</p></div><div class="preview-mode-label"><span class="small-dot"></span> SYNTAX PREVIEW</div></div>
-      <div class="syntax-preview" id="code-preview">
-        <div class="syntax-toolbar"><div class="syntax-window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="syntax-tab"><span aria-hidden="true">◇</span> palette.ts</span><span class="syntax-language">TYPESCRIPT <span aria-hidden="true">✳</span></span></div>
-        <div class="syntax-body">
-          <div class="syntax-editor">
+                        <section
+                            class="preview-section syntax-section"
+                            id="code-preview-section"
+                            aria-labelledby="syntax-title"
+                            tabindex="-1"
+                        >
+                            <div class="preview-heading">
+                                <div>
+                                    <span class="overline">04 / IN THE DETAILS</span>
+                                    <h2 id="syntax-title">A little code<span>.</span></h2>
+                                    <p>See how your colors read between the lines.</p>
+                                </div>
+                                <div class="preview-mode-label"><span class="small-dot"></span> SYNTAX PREVIEW</div>
+                            </div>
+                            <div class="syntax-preview" id="code-preview">
+                                <div class="syntax-toolbar">
+                                    <div class="syntax-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+                                    <span class="syntax-tab"><span aria-hidden="true">◇</span> palette.ts</span><span class="syntax-language">TYPESCRIPT <span aria-hidden="true">✳</span></span>
+                                </div>
+                                <div class="syntax-body">
+                                    <div class="syntax-editor">
             <pre class="syntax-gutter" aria-hidden="true">01
 02
 03
@@ -88,7 +398,12 @@
 12
 13
 14</pre>
-            <pre class="syntax-code" tabindex="0" role="region" aria-label="TypeScript syntax example; scroll horizontally for long lines"><code><span class="syntax-comment">// A little color goes a long way.</span>
+            <pre
+class="syntax-code"
+tabindex="0"
+role="region"
+aria-label="TypeScript syntax example; scroll horizontally for long lines"
+><code><span class="syntax-comment">// A little color goes a long way.</span>
 <span class="syntax-keyword">type</span> <span class="syntax-type">Palette</span> = {
   <span class="syntax-property">name</span>: <span class="syntax-type">string</span>;
   <span class="syntax-property">colors</span>: <span class="syntax-type">number</span>;
@@ -102,45 +417,225 @@
 });
 
 <span class="syntax-keyword">const</span> studio = <span class="syntax-function">createPalette</span>(<span class="syntax-string">"daylight"</span>, <span class="syntax-number">8</span>);</code></pre>
-          </div>
-          <aside class="syntax-legend" aria-label="Syntax token colors"><span class="syntax-legend-title">THE LITTLE DETAILS</span><strong>Color, in context.</strong><p>A small glimpse at how each accent works together.</p><div class="syntax-token-list"><span class="syntax-keyword"><i aria-hidden="true"></i>Keyword</span><span class="syntax-string"><i aria-hidden="true"></i>String</span><span class="syntax-function"><i aria-hidden="true"></i>Function</span><span class="syntax-type"><i aria-hidden="true"></i>Type</span><span class="syntax-property"><i aria-hidden="true"></i>Property</span><span class="syntax-number"><i aria-hidden="true"></i>Number</span><span class="syntax-constant"><i aria-hidden="true"></i>Constant</span><span class="syntax-operator"><i aria-hidden="true"></i>Operator</span></div><div class="syntax-legend-note"><span aria-hidden="true">✳</span> A palette for the details.</div></aside>
-        </div>
-      </div>
-    </section>
-      </div>
-    </aside>
-    </div>
-    <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a href="https://earendil.com/posts/system-theme/" target="_blank" rel="noreferrer">SYSTEM THEME ↗</a> &amp; <a href="https://stephango.com/flexoki" target="_blank" rel="noreferrer">FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
-  </main>
-  <dialog class="base-dialog" id="base-dialog" aria-labelledby="base-dialog-title" aria-describedby="base-dialog-help">
-    <div class="base-dialog-heading"><div><span class="overline">BUILD FROM TWO COLORS</span><h2 id="base-dialog-title">Generate base colors<span>.</span></h2></div><button type="button" class="base-dialog-close" id="base-dialog-close" aria-label="Cancel and close">×</button></div>
-    <p id="base-dialog-help">Choose the background and primary text for this mode. Applying replaces its eight base colors; accents and the other mode stay unchanged. Undo generation restores the previous palette, removing later edits.</p>
-    <p class="base-dialog-mode" id="base-dialog-mode"></p>
-    <div class="base-anchors">
-      <div class="base-anchor"><label for="base-bg-hex">Background <span>BG</span></label><div class="base-anchor-input"><input type="color" id="base-bg-picker" aria-label="Pick background color"><input type="text" id="base-bg-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-describedby="base-dialog-error"></div>
-        <div class="sliders base-anchor-sliders"><span class="overline">OKHSL</span>
-          <div class="slider-row"><div class="slider-label"><label for="base-bg-hue">Hue</label><output id="base-bg-hue-value" for="base-bg-hue"></output></div><input id="base-bg-hue" type="range" min="0" max="360" step="1" aria-label="Background hue" aria-describedby="base-hue-help"></div>
-          <div class="slider-row"><div class="slider-label"><label for="base-bg-saturation">Saturation</label><output id="base-bg-saturation-value" for="base-bg-saturation"></output></div><input id="base-bg-saturation" type="range" min="0" max="100" step="1" aria-label="Background saturation"></div>
-          <div class="slider-row"><div class="slider-label"><label for="base-bg-lightness">Lightness</label><output id="base-bg-lightness-value" for="base-bg-lightness"></output></div><input id="base-bg-lightness" type="range" min="0" max="100" step="1" aria-label="Background lightness"></div>
-        </div>
-      </div>
-      <div class="base-anchor"><label for="base-tx-hex">Primary text <span>TEXT</span></label><div class="base-anchor-input"><input type="color" id="base-tx-picker" aria-label="Pick primary text color"><input type="text" id="base-tx-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-describedby="base-dialog-error"></div>
-        <div class="sliders base-anchor-sliders"><span class="overline">OKHSL</span>
-          <div class="slider-row"><div class="slider-label"><label for="base-tx-hue">Hue</label><output id="base-tx-hue-value" for="base-tx-hue"></output></div><input id="base-tx-hue" type="range" min="0" max="360" step="1" aria-label="Primary text hue" aria-describedby="base-hue-help"></div>
-          <div class="slider-row"><div class="slider-label"><label for="base-tx-saturation">Saturation</label><output id="base-tx-saturation-value" for="base-tx-saturation"></output></div><input id="base-tx-saturation" type="range" min="0" max="100" step="1" aria-label="Primary text saturation"></div>
-          <div class="slider-row"><div class="slider-label"><label for="base-tx-lightness">Lightness</label><output id="base-tx-lightness-value" for="base-tx-lightness"></output></div><input id="base-tx-lightness" type="range" min="0" max="100" step="1" aria-label="Primary text lightness"></div>
-        </div>
-      </div>
-    </div>
-    <p class="base-hue-help" id="base-hue-help">Hue tracks show a fixed spectrum reference.</p>
-    <div class="base-anchor-preview" id="base-anchor-preview"><strong>Aa</strong><span>Background &amp; text</span></div>
-    <p class="base-contrast" id="base-anchor-contrast" role="status" aria-live="polite"></p>
-    <p class="base-dialog-footnote">We’ll use these two colors to build the remaining base roles, checking contrast where possible. Accents stay unchanged; check their contrast afterward.</p>
-    <p class="base-dialog-import-notice" id="base-dialog-import-notice" role="status" aria-live="polite" hidden></p>
-    <p class="base-dialog-error" id="base-dialog-error" role="alert" hidden></p>
-    <div class="base-dialog-actions"><button type="button" class="button button-outline" id="base-cancel-button">Cancel</button><button type="button" class="button button-dark" id="base-apply-button">Apply &amp; generate</button></div>
-  </dialog>
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script type="module" src="./src/app.js"></script>
-</body>
+                                    </div>
+                                    <aside class="syntax-legend" aria-label="Syntax token colors">
+                                        <span class="syntax-legend-title">THE LITTLE DETAILS</span><strong>Color, in context.</strong>
+                                        <p>A small glimpse at how each accent works together.</p>
+                                        <div class="syntax-token-list"><span class="syntax-keyword"><i aria-hidden="true"></i>Keyword</span><span class="syntax-string"><i aria-hidden="true"></i>String</span><span class="syntax-function"><i aria-hidden="true"></i>Function</span><span class="syntax-type"><i aria-hidden="true"></i>Type</span><span class="syntax-property"><i aria-hidden="true"></i>Property</span><span class="syntax-number"><i aria-hidden="true"></i>Number</span><span class="syntax-constant"><i aria-hidden="true"></i>Constant</span><span class="syntax-operator"><i aria-hidden="true"></i>Operator</span></div>
+                                        <div class="syntax-legend-note"><span aria-hidden="true">✳</span> A palette for the details.</div>
+                                    </aside>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </aside>
+            </div>
+            <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a
+                        href="https://earendil.com/posts/system-theme/"
+                        target="_blank"
+                        rel="noreferrer"
+                    >SYSTEM THEME ↗</a> &amp; <a
+                        href="https://stephango.com/flexoki"
+                        target="_blank"
+                        rel="noreferrer"
+                    >FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
+        </main>
+        <dialog
+            class="base-dialog"
+            id="base-dialog"
+            aria-labelledby="base-dialog-title"
+            aria-describedby="base-dialog-help"
+        >
+            <div class="base-dialog-heading">
+                <div>
+                    <span class="overline">BUILD FROM TWO COLORS</span>
+                    <h2 id="base-dialog-title">Generate base colors<span>.</span></h2>
+                </div>
+                <button
+                    type="button"
+                    class="base-dialog-close"
+                    id="base-dialog-close"
+                    aria-label="Cancel and close"
+                >×</button>
+            </div>
+            <p id="base-dialog-help">Choose the background and primary text for this mode. Applying replaces its eight base colors; accents and the other mode stay unchanged. Undo generation restores the previous palette, removing later edits.</p>
+            <p class="base-dialog-mode" id="base-dialog-mode"></p>
+            <div class="base-anchors">
+                <div class="base-anchor">
+                    <label for="base-bg-hex">Background <span>BG</span></label>
+                    <div class="base-anchor-input">
+                        <!-- eslint-disable @html-eslint/use-baseline -->
+                        <input
+                            type="color"
+                            id="base-bg-picker"
+                            aria-label="Pick background color"
+                        >
+                        <!-- eslint-enable @html-eslint/use-baseline -->
+                        <input
+                            type="text"
+                            id="base-bg-hex"
+                            maxlength="7"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-describedby="base-dialog-error"
+                        >
+                    </div>
+                    <div class="sliders base-anchor-sliders">
+                        <span class="overline">OKHSL</span>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-bg-hue">Hue</label>
+                                <output id="base-bg-hue-value" for="base-bg-hue"></output>
+                            </div>
+                            <input
+                                id="base-bg-hue"
+                                type="range"
+                                min="0"
+                                max="360"
+                                step="1"
+                                aria-label="Background hue"
+                                aria-describedby="base-hue-help"
+                            >
+                        </div>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-bg-saturation">Saturation</label>
+                                <output id="base-bg-saturation-value" for="base-bg-saturation"></output>
+                            </div>
+                            <input
+                                id="base-bg-saturation"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                aria-label="Background saturation"
+                            >
+                        </div>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-bg-lightness">Lightness</label>
+                                <output id="base-bg-lightness-value" for="base-bg-lightness"></output>
+                            </div>
+                            <input
+                                id="base-bg-lightness"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                aria-label="Background lightness"
+                            >
+                        </div>
+                    </div>
+                </div>
+                <div class="base-anchor">
+                    <label for="base-tx-hex">Primary text <span>TEXT</span></label>
+                    <div class="base-anchor-input">
+                        <!-- eslint-disable @html-eslint/use-baseline -->
+                        <input
+                            type="color"
+                            id="base-tx-picker"
+                            aria-label="Pick primary text color"
+                        >
+                        <!-- eslint-enable @html-eslint/use-baseline -->
+                        <input
+                            type="text"
+                            id="base-tx-hex"
+                            maxlength="7"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-describedby="base-dialog-error"
+                        >
+                    </div>
+                    <div class="sliders base-anchor-sliders">
+                        <span class="overline">OKHSL</span>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-tx-hue">Hue</label>
+                                <output id="base-tx-hue-value" for="base-tx-hue"></output>
+                            </div>
+                            <input
+                                id="base-tx-hue"
+                                type="range"
+                                min="0"
+                                max="360"
+                                step="1"
+                                aria-label="Primary text hue"
+                                aria-describedby="base-hue-help"
+                            >
+                        </div>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-tx-saturation">Saturation</label>
+                                <output id="base-tx-saturation-value" for="base-tx-saturation"></output>
+                            </div>
+                            <input
+                                id="base-tx-saturation"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                aria-label="Primary text saturation"
+                            >
+                        </div>
+                        <div class="slider-row">
+                            <div class="slider-label">
+                                <label for="base-tx-lightness">Lightness</label>
+                                <output id="base-tx-lightness-value" for="base-tx-lightness"></output>
+                            </div>
+                            <input
+                                id="base-tx-lightness"
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                aria-label="Primary text lightness"
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="base-hue-help" id="base-hue-help">Hue tracks show a fixed spectrum reference.</p>
+            <div class="base-anchor-preview" id="base-anchor-preview"><strong>Aa</strong><span>Background &amp; text</span></div>
+            <p
+                class="base-contrast"
+                id="base-anchor-contrast"
+                role="status"
+                aria-live="polite"
+            ></p>
+            <p class="base-dialog-footnote">We’ll use these two colors to build the remaining base roles, checking contrast where possible. Accents stay unchanged; check their contrast afterward.</p>
+            <p
+                class="base-dialog-import-notice"
+                id="base-dialog-import-notice"
+                role="status"
+                aria-live="polite"
+                hidden
+            ></p>
+            <p
+                class="base-dialog-error"
+                id="base-dialog-error"
+                role="alert"
+                hidden
+            ></p>
+            <div class="base-dialog-actions">
+                <button
+                    type="button"
+                    class="button button-outline"
+                    id="base-cancel-button"
+                >Cancel</button>
+                <button
+                    type="button"
+                    class="button button-dark"
+                    id="base-apply-button"
+                >Apply &amp; generate</button>
+            </div>
+        </dialog>
+        <div
+            id="toast"
+            class="toast"
+            role="status"
+            aria-live="polite"
+            hidden
+        ></div>
+        <script type="module" src="./src/app.js"></script>
+    </body>
 </html>
