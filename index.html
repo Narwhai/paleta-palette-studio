@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <!-- eslint-disable-next-line @html-eslint/use-baseline -->
         <meta name="theme-color" content="#f5f3ed">
-        <title>Tone — a palette studio</title>
+        <title>Paleta — a palette studio</title>
         <link rel="stylesheet" href="./style.css">
     </head>
     <body>
@@ -13,9 +13,9 @@
             <a
                 class="brand"
                 href="#top"
-                aria-label="Tone, palette studio home"
-            ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>tone<span class="brand-period">.</span></span></a>
-            <div class="topbar-center">A LITTLE STUDIO FOR COLOR <span>✳</span></div>
+                aria-label="Paleta, palette studio home"
+            ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>paleta<span class="brand-period">.</span></span></a>
+            <div class="topbar-center"></div>
             <div class="top-actions">
                 <button
                     class="button button-quiet"
@@ -67,22 +67,21 @@
                 aria-live="polite"
                 hidden
             ></div>
-            <div class="intro">
-                <div>
-                    <div class="eyebrow"><span class="small-dot"></span> YOUR COLOR WORKSPACE <span class="eyebrow-divider">/</span> OKHSL</div>
-                    <h1>A little more <em>color.</em></h1>
-                    <p>Build a thoughtful palette, one color at a time.</p>
-                </div>
-                <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div>
-            </div>
+            <!-- <div class="intro"> -->
+                <!-- <div> -->
+                <!--     <div class="eyebrow"><span class="small-dot"></span> YOUR COLOR WORKSPACE <span class="eyebrow-divider">/</span> OKHSL</div> -->
+                <!--     <h1>A little more <em>color.</em></h1> -->
+                <!--     <p>Build a thoughtful palette, one color at a time.</p> -->
+                <!-- </div> -->
+                <!-- <div class="intro-note"><span class="note-star">✳</span><span>Made for both<br><strong>light &amp; dark.</strong></span></div> -->
+            <!-- </div> -->
 
             <div class="studio-layout">
                 <div class="workspace">
                     <section class="palette-panel panel" aria-labelledby="palette-title">
                         <div class="section-heading palette-heading">
                             <div>
-                                <span class="overline">01 / YOUR PALETTE</span>
-                                <h2 id="palette-title">The colors</h2>
+                                <h2 id="palette-title">Colors</h2>
                             </div>
                             <div
                                 class="mode-switch"
@@ -143,26 +142,21 @@
                             <div class="group-heading"><span>ACCENT COLORS</span><span>09 — 16</span></div>
                             <div class="swatch-grid" id="accent-swatches"></div>
                         </div>
-                        <div class="palette-footer">
-                            <span class="sparkle">✳</span>
-                            <p>Good colors play well together.<br><span>Fine-tune each one to make it yours.</span></p>
-                        </div>
                     </section>
 
                     <section class="editor-panel panel" aria-labelledby="editor-title">
-                        <div class="section-heading">
-                            <div>
-                                <span class="overline">02 / FINE TUNE</span>
-                                <h2 id="editor-title">Make it yours</h2>
-                            </div>
-                            <span class="editor-icon" aria-hidden="true">↗</span>
-                        </div>
+                        <!-- <div class="section-heading"> -->
+                            <!-- <div> -->
+                            <!--     <h2 id="editor-title"></h2> -->
+                            <!-- </div> -->
+                            <!-- <span class="editor-icon" aria-hidden="true">↗</span> -->
+                        <!-- </div> -->
                         <div class="selected-color">
                             <div
                                 id="selected-sample"
                                 class="selected-sample"
                                 aria-hidden="true"
-                            ><span>✳</span></div>
+                            ></div>
                             <div class="selected-info"><span class="overline">SELECTED COLOR</span><strong id="selected-name">Background</strong><span id="selected-role">BASE / BG</span></div>
                             <label class="hex-control" for="hex-input">
                                 <span>HEX</span>
@@ -312,9 +306,7 @@
                         >
                             <div class="preview-heading">
                                 <div>
-                                    <span class="overline">03 / SEE IT IN ACTION</span>
-                                    <h2 id="preview-title">The bigger picture<span>.</span></h2>
-                                    <p>Your palette, at work in a little imaginary space.</p>
+                                    <h2 id="preview-title">Previews<span>.</span></h2>
                                 </div>
                                 <div class="preview-mode-label"><span class="small-dot"></span><span id="preview-mode">LIGHT MODE PREVIEW</span></div>
                             </div>
@@ -369,14 +361,6 @@
                             aria-labelledby="syntax-title"
                             tabindex="-1"
                         >
-                            <div class="preview-heading">
-                                <div>
-                                    <span class="overline">04 / IN THE DETAILS</span>
-                                    <h2 id="syntax-title">A little code<span>.</span></h2>
-                                    <p>See how your colors read between the lines.</p>
-                                </div>
-                                <div class="preview-mode-label"><span class="small-dot"></span> SYNTAX PREVIEW</div>
-                            </div>
                             <div class="syntax-preview" id="code-preview">
                                 <div class="syntax-toolbar">
                                     <div class="syntax-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
