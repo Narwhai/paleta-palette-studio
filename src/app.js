@@ -32,6 +32,7 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const validColor = (color) => color && typeof color === 'object' && Number.isFinite(color.h) && Number.isFinite(color.s) && Number.isFinite(color.l) && color.h >= 0 && color.h <= 360 && color.s >= 0 && color.s <= 100 && color.l >= 0 && color.l <= 100;
 const validPalettes = (palettes) => palettes && ['light', 'dark'].every((mode) => palettes[mode] && ROLES.every(([role]) => validColor(palettes[mode][role])));
 let state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
+let siteThemeEnabled = true;
 let undo = { light: null, dark: null };
 let generationUndo = { light: null, dark: null };
 let generationNotes = { light: null, dark: null };
@@ -54,6 +55,7 @@ try {
     const parsed = JSON.parse(saved);
     if (validPalettes(parsed.palettes) && ['light', 'dark'].includes(parsed.mode) && ROLES.some(([role]) => role === parsed.selected)) {
       state = { mode: parsed.mode, selected: parsed.selected, palettes: parsed.palettes };
+      if (typeof parsed.siteThemeEnabled === 'boolean') siteThemeEnabled = parsed.siteThemeEnabled;
     } else {
       persistenceWarning = true;
     }
@@ -73,7 +75,7 @@ function cancelPendingImport() {
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, siteThemeEnabled }));
   } catch {
     if (!persistenceWarning) toast('Could not save locally. Export your palette to keep it.');
     persistenceWarning = true;
@@ -129,11 +131,20 @@ function renderSliders(prefix, color) {
   $(`${prefix}lightness`).style.background = gradient((position) => ({ h: color.h, s: color.s, l: position * 100 }));
 }
 
+function renderSiteTheme() {
+  document.documentElement.setAttribute('data-site-theme', siteThemeEnabled ? 'palette' : 'neutral');
+  document.documentElement.setAttribute('data-site-mode', state.mode);
+  $('site-theme-toggle').setAttribute('aria-pressed', String(siteThemeEnabled));
+  $('site-theme-status').textContent = siteThemeEnabled ? 'On' : 'Off';
+}
+
 function render() {
   const colors = state.palettes[state.mode];
   const color = colors[state.selected];
   const currentHex = okhslToHex(color);
   const previews = [$('theme-preview').querySelector('.preview-app'), $('code-preview'), $('mini-preview')];
+  const root = document.documentElement;
+  renderSiteTheme();
   for (const [role, name] of ROLES) {
     const item = buttons.get(role);
     const hex = okhslToHex(colors[role]);
@@ -142,6 +153,7 @@ function render() {
     item.button.setAttribute('aria-pressed', String(role === state.selected));
     item.button.setAttribute('aria-label', `${name}, ${hex}, ${role === state.selected ? 'selected' : 'select to edit'}`);
     for (const preview of previews) preview.style.setProperty(`--${role}`, hex);
+    root.style.setProperty(`--site-${role}`, hex);
   }
   $('mode-light').setAttribute('aria-pressed', String(state.mode === 'light'));
   $('mode-dark').setAttribute('aria-pressed', String(state.mode === 'dark'));
@@ -165,6 +177,12 @@ function render() {
   $('contrast-bg2').textContent = `${contrastRatio(currentHex, okhslToHex(colors['bg-2'])).toFixed(2)}:1`;
   $('undo-button').disabled = !undo[state.mode];
 }
+
+$('site-theme-toggle').addEventListener('click', () => {
+  siteThemeEnabled = !siteThemeEnabled;
+  renderSiteTheme();
+  save();
+});
 
 for (const [id, property] of [['hue', 'h'], ['saturation', 's'], ['lightness', 'l']]) {
   $(id).addEventListener('input', (event) => {

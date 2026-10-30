@@ -61,6 +61,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /id="import-help">Replaces both modes/);
   assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
   assert.match(html, /id="import-message"[^>]*role="status"/);
+  assert.match(html, /id="site-theme-toggle"[^>]*aria-pressed="true"/);
+  assert.match(css, /:root\[data-site-theme="palette"\]\{background:var\(--site-bg\);color:var\(--site-tx\)/);
   assert.match(html, /id="download-base16-light"[^>]*>Download Base16-style light/);
   assert.match(html, /id="download-base16-dark"[^>]*>Download Base16-style dark/);
   assert.match(html, /id="generate-button"[^>]*aria-describedby="generate-help"/);
@@ -123,6 +125,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     createElement: (tag) => new Element(tag),
     addEventListener(type, listener) { documentListeners.set(type, listener); },
     body: new Element('body'),
+    documentElement: new Element('html'),
     downloads
   });
   install('window', { confirm: () => true, matchMedia: () => ({ matches: true }) });
@@ -142,11 +145,16 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
         assert.equal(byId('code-preview').style.getPropertyValue(`--${role}`), expected, `code preview ${mode} ${role}`);
         assert.equal(byId('mini-preview').style.getPropertyValue(`--${role}`), expected, `compact preview ${mode} ${role}`);
         assert.equal(byId('theme-preview').previewApp.style.getPropertyValue(`--${role}`), expected, `original preview ${mode} ${role}`);
+        assert.equal(document.documentElement.style.getPropertyValue(`--site-${role}`), expected, `site theme ${mode} ${role}`);
       }
     };
     assert.equal(byId('base-swatches').children.length, 8);
     assert.equal(byId('accent-swatches').children.length, 8);
     assert.equal(byId('selected-name').textContent, 'Background');
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette', 'site previews the palette initially');
+    assert.equal(document.documentElement.getAttribute('data-site-mode'), 'light');
+    assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'true');
+    assert.equal(document.documentElement.style.getPropertyValue('--site-bg'), byId('theme-preview').previewApp.style.getPropertyValue('--bg'));
     byId('preview-toggle').click();
     assert.equal(byId('preview-toggle').getAttribute('aria-expanded'), 'true');
     assert.equal(byId('preview-pane').getAttribute('data-expanded'), 'true');
@@ -180,12 +188,39 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(byId('theme-preview').previewApp.style.getPropertyValue('--red'), byId('hex-input').value.toLowerCase());
     assertPreviewsMatchPalette('light');
 
+    const paletteBeforeSiteToggle = structuredClone(saved().palettes);
+    byId('site-theme-toggle').click();
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral');
+    assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'false');
+    assert.equal(byId('site-theme-status').textContent, 'Off');
+    assert.equal(saved().siteThemeEnabled, false);
+    assert.deepEqual(saved().palettes, paletteBeforeSiteToggle, 'turning off site theming does not change colors');
+    slider.value = '201';
+    slider.dispatch('input');
+    assertPreviewsMatchPalette('light');
+    byId('mode-dark').click();
+    assert.equal(document.documentElement.getAttribute('data-site-mode'), 'dark');
+    assertPreviewsMatchPalette('dark');
+    byId('mode-light').click();
+    byId('site-theme-toggle').click();
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette');
+    assert.equal(byId('site-theme-status').textContent, 'On');
+    assert.equal(saved().siteThemeEnabled, true);
+    assertPreviewsMatchPalette('light');
+
     const hex = byId('hex-input');
     const beforeInvalid = JSON.stringify(saved().palettes.light.red);
     hex.value = 'nothex';
     hex.dispatch('change');
     assert.ok(hex.validationMessage);
     assert.equal(JSON.stringify(saved().palettes.light.red), beforeInvalid);
+    const invalidMessage = hex.validationMessage;
+    byId('site-theme-toggle').click();
+    assert.equal(hex.value, 'nothex', 'switching themes preserves an unfinished color entry');
+    assert.equal(hex.validationMessage, invalidMessage, 'switching themes preserves validation');
+    byId('site-theme-toggle').click();
+    assert.equal(hex.value, 'nothex');
+    assert.equal(hex.validationMessage, invalidMessage);
     hex.value = '#3266ab';
     hex.dispatch('change');
     assert.equal(hex.validationMessage, '');
@@ -433,12 +468,18 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     byId('mode-light').click();
     byId('accent-swatches').children[3].click();
     assert.match(byId('import-message').textContent, /Reading JSON/, 'mode and swatch selection do not cancel a pending import');
+    byId('site-theme-toggle').click();
+    assert.match(byId('import-message').textContent, /Reading JSON/, 'the site theme switch does not cancel an import');
     modeRead.resolve(JSON.stringify(json));
     await modeRead.pending;
     assert.deepEqual(saved().palettes, before, 'switching mode or selected role does not block import');
     assert.equal(saved().mode, 'light');
     assert.equal(saved().selected, 'green');
     assert.match(byId('import-message').textContent, /Imported both/);
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral');
+    assertPreviewsMatchPalette('light');
+    byId('site-theme-toggle').click();
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette');
 
     const optimizeRead = deferredImport();
     byId('optimize-button').click();
@@ -629,6 +670,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(byId('undo-generation-button').disabled, false);
     byId('reset-button').click();
     assert.equal(byId('undo-generation-button').disabled, true, 'reset clears light generation undo');
+    assertPreviewsMatchPalette('light');
     assert.equal(byId('generation-message').hidden, true, 'reset clears light generation notes');
     byId('mode-dark').click();
     assert.equal(byId('undo-generation-button').disabled, true, 'reset also clears dark generation undo');
@@ -740,6 +782,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(document.activeElement, byId('base-bg-hex'));
     byId('base-bg-hex').value = '#123456';
     byId('base-bg-hex').dispatch('input');
+    assert.equal(document.documentElement.style.getPropertyValue('--site-bg'), okhslToHex(beforeBase.palettes.light.bg), 'unapplied dialog drafts do not change the site theme');
     byId('base-cancel-button').click();
     assert.deepEqual(saved(), beforeBase, 'cancel does not change persisted state');
     assert.equal(document.activeElement, byId('base-generate-button'), 'cancel returns focus to its opener');
@@ -980,6 +1023,38 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.match(byId('base-dialog-error').textContent, /palette changed.*reopen/i);
     assert.equal(byId('base-dialog').open, true);
     byId('base-dialog-close').click();
+
+    // Reload with the same storage and fresh DOM to verify the recovery switch
+    // is remembered without changing the palette, and older saves still work.
+    byId('site-theme-toggle').click();
+    const beforeReload = structuredClone(saved());
+    const freshDom = () => {
+      elements.clear();
+      for (const match of html.matchAll(/\bid="([^"]+)"/g)) elements.set(match[1], new Element());
+      byId('theme-preview').previewApp = new Element();
+      byId('preview-toggle').setAttribute('aria-expanded', 'false');
+      byId('preview-pane').setAttribute('data-expanded', 'false');
+      byId('preview-pane').append(byId('preview-toggle'), byId('preview-scroll'));
+      document.documentElement = new Element('html');
+      document.body = new Element('body');
+    };
+    freshDom();
+    await import('../src/app.js?site-theme-reload');
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral');
+    assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'false');
+    assert.deepEqual(saved(), beforeReload);
+    assertPreviewsMatchPalette(beforeReload.mode);
+    byId('reset-button').click();
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral', 'resetting colors preserves the recovery preference');
+    assertPreviewsMatchPalette('light');
+
+    const oldSave = saved();
+    delete oldSave.siteThemeEnabled;
+    storage.set('tone-palette-studio-v1', JSON.stringify(oldSave));
+    freshDom();
+    await import('../src/app.js?site-theme-legacy');
+    assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette', 'older saves enable the new preview');
+    assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'true');
   } finally {
     for (const [key, descriptor] of Object.entries(originals)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

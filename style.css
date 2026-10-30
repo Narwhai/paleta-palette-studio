@@ -146,3 +146,66 @@
 .base-dialog-error[hidden]{display:none}
 .base-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
 @media(max-width:350px){.base-dialog{width:calc(100% - 10px);padding:10px}.base-dialog-heading>div{min-width:0}.base-dialog-heading h2{font-size:19px;overflow-wrap:anywhere}.base-anchors{grid-template-columns:1fr}.base-anchor{padding:8px}.base-anchor label{flex-wrap:wrap;gap:2px}.base-anchor-input{flex-wrap:wrap}.base-anchor input[type=text]{flex:1 1 100%}.base-anchor-preview{padding:8px;flex-wrap:wrap}.base-anchor-preview span{min-width:0;overflow-wrap:anywhere}.base-dialog-actions .button{flex:1}}
+
+/* The editor is also a live preview. Keep the switch and dialog close button
+   neutral so an unreadable palette can always be turned off or dismissed. */
+.site-theme-toggle,.base-dialog-close{background:#191919;color:#fff;border:2px solid #fff;box-shadow:0 0 0 1px #191919}
+.site-theme-toggle{border-radius:6px;padding:8px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+.site-theme-toggle span{margin-left:4px;text-decoration:underline}
+.site-theme-toggle:hover,.base-dialog-close:hover{background:#393939}
+:root :is(.site-theme-toggle,.base-dialog-close):focus-visible,
+:root[data-site-theme="palette"] :is(button,input,a,summary,.preview-scroll,.preview-section,.syntax-code):focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px #000}
+
+:root[data-site-theme="palette"]{background:var(--site-bg);color:var(--site-tx);--ink:var(--site-tx);--paper:var(--site-bg-2);--line:var(--site-ui-2)}
+:root[data-site-theme="palette"][data-site-mode="light"]{color-scheme:light}
+:root[data-site-theme="palette"][data-site-mode="dark"]{color-scheme:dark}
+:root[data-site-theme="palette"] .topbar{background:var(--site-bg-2);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .panel,:root[data-site-theme="palette"] .preview-pane{border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .brand-period,:root[data-site-theme="palette"] .small-dot,:root[data-site-theme="palette"] .preview-heading h2 span,:root[data-site-theme="palette"] .footer strong span,:root[data-site-theme="palette"] .base-dialog-heading h2 span{color:var(--site-orange)}
+:root[data-site-theme="palette"] .small-dot{background:var(--site-orange)}
+:root[data-site-theme="palette"] .brand-mark i{background:var(--site-red)}
+:root[data-site-theme="palette"] .brand-mark i:nth-child(2){background:var(--site-yellow)}
+:root[data-site-theme="palette"] .brand-mark i:nth-child(3){background:var(--site-green)}
+:root[data-site-theme="palette"] .brand-mark i:nth-child(4){background:var(--site-purple)}
+:root[data-site-theme="palette"] .button-quiet{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .button-quiet:hover{background:var(--site-ui)}
+:root[data-site-theme="palette"] .button-dark{background:var(--site-tx);color:var(--site-bg-2)}
+:root[data-site-theme="palette"] .button-dark:hover{background:var(--site-ui);color:var(--site-tx)}
+:root[data-site-theme="palette"] .button-outline,:root[data-site-theme="palette"] .button-import{background:var(--site-bg);color:var(--site-tx);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .button-outline:hover,:root[data-site-theme="palette"] .button-import:hover{background:var(--site-ui)}
+:root[data-site-theme="palette"] .button-import span{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .export-menu{background:var(--site-bg-2);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .export-menu p{color:var(--site-tx-3)}
+:root[data-site-theme="palette"] .export-menu button{color:var(--site-tx)}
+:root[data-site-theme="palette"] .export-menu button:hover{background:var(--site-ui)}
+:root[data-site-theme="palette"] .mode-switch{background:var(--site-ui)}
+:root[data-site-theme="palette"] .mode-switch button{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .mode-switch button[aria-pressed=true]{background:var(--site-bg-2);color:var(--site-tx)}
+:root[data-site-theme="palette"] .overline,:root[data-site-theme="palette"] .group-heading,:root[data-site-theme="palette"] .palette-intro,:root[data-site-theme="palette"] .selected-info>span:last-child,:root[data-site-theme="palette"] .hex-control,:root[data-site-theme="palette"] .slider-intro p,:root[data-site-theme="palette"] .slider-label label span,:root[data-site-theme="palette"] .slider-ends,:root[data-site-theme="palette"] .contrast-card p,:root[data-site-theme="palette"] .contrast-values span,:root[data-site-theme="palette"] .optimizer-bottom>span,:root[data-site-theme="palette"] .preview-mode-label,:root[data-site-theme="palette"] .footer{color:var(--site-tx-3)}
+:root[data-site-theme="palette"] .palette-intro span:first-child,:root[data-site-theme="palette"] .swatch-hex,:root[data-site-theme="palette"] .slider-label output,:root[data-site-theme="palette"] .preview-pane-label,:root[data-site-theme="palette"] .footer a,:root[data-site-theme="palette"] .footer strong{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .swatch-sample,:root[data-site-theme="palette"] .selected-sample{border-color:var(--site-ui-3)}
+:root[data-site-theme="palette"] .swatch[aria-pressed=true] .swatch-sample{outline-color:var(--site-tx)}
+:root[data-site-theme="palette"] .hex-control input{color:var(--site-tx)}
+:root[data-site-theme="palette"] .hex-error{color:var(--site-red)}
+:root[data-site-theme="palette"] .slider-intro strong span{color:var(--site-magenta)}
+:root[data-site-theme="palette"] .generate-card,:root[data-site-theme="palette"] .optimize-card{background:var(--site-bg)}
+:root[data-site-theme="palette"] .generate-card>p,:root[data-site-theme="palette"] .optimize-copy p,:root[data-site-theme="palette"] .optimizer-details,:root[data-site-theme="palette"] .optimizer-details summary{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .optimizer-details summary{color:var(--site-cyan)}
+:root[data-site-theme="palette"] .optimize-icon{background:var(--site-bg-2);color:var(--site-orange)}
+:root[data-site-theme="palette"] .generate-actions .button:disabled,:root[data-site-theme="palette"] .optimize-actions .button:disabled{background:var(--site-bg-2);color:var(--site-tx-2);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .text-button{color:var(--site-orange)}
+:root[data-site-theme="palette"] .footer a{color:var(--site-blue)}
+:root[data-site-theme="palette"] .notice{background:var(--site-bg);color:var(--site-tx)}
+:root[data-site-theme="palette"] .preview-frame{background:var(--site-ui);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .preview-jumps button,:root[data-site-theme="palette"] .preview-toggle{background:var(--site-ui);color:var(--site-tx)}
+:root[data-site-theme="palette"] .preview-jumps button:hover,:root[data-site-theme="palette"] .preview-toggle:hover{background:var(--site-bg)}
+:root[data-site-theme="palette"] .preview-scroll{scrollbar-color:var(--site-ui-3) var(--site-bg-2)}
+:root[data-site-theme="palette"] .toast{background:var(--site-bg-2);color:var(--site-tx);border:1px solid var(--site-ui-3)}
+:root[data-site-theme="palette"] .base-dialog{border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .base-dialog>p,:root[data-site-theme="palette"] .base-dialog .base-dialog-mode,:root[data-site-theme="palette"] .base-dialog .base-hue-help,:root[data-site-theme="palette"] .base-dialog .base-contrast,:root[data-site-theme="palette"] .base-dialog .base-dialog-import-notice,:root[data-site-theme="palette"] .base-anchor label span{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .base-dialog .base-dialog-error{color:var(--site-red)}
+:root[data-site-theme="palette"] .base-anchor input[type=color]{background:var(--site-bg);border-color:var(--site-ui-2)}
+:root[data-site-theme="palette"] .base-anchor input[type=text]{color:var(--site-tx);border-color:var(--site-ui-2)}
+
+@media(max-width:600px){.topbar{height:auto;min-height:65px;flex-wrap:wrap;gap:8px;padding-top:8px;padding-bottom:8px}.top-actions{flex-basis:100%;min-width:0;flex-wrap:wrap;justify-content:flex-end;gap:4px}}
+@media(max-width:250px){.top-actions{justify-content:flex-start}}
