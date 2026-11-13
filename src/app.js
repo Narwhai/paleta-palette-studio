@@ -13,25 +13,30 @@ const ACCENTS = [
   ['cyan', 'Cyan'], ['blue', 'Blue'], ['purple', 'Purple'], ['magenta', 'Magenta']
 ];
 const ROLES = [...BASE, ...ACCENTS];
+const DEFAULT_THEME_NAME = 'Bolis';
+const MAX_THEME_NAME_LENGTH = 60;
+// Bolis, the theme in bolis.json, is the starting palette.
 const DEFAULT_HEX = {
   light: {
-    bg: '#fffcf4', 'bg-2': '#f2f0e5', ui: '#e6e4d9', 'ui-2': '#cecdc3', 'ui-3': '#b7b5ac',
-    'tx-3': '#878580', 'tx-2': '#6f6e69', tx: '#100f0f', red: '#af3029', orange: '#bc5215',
-    yellow: '#ad8301', green: '#66800b', cyan: '#24837b', blue: '#205ea6', purple: '#5e409d', magenta: '#a02f6f'
+    bg: '#edeeef', 'bg-2': '#dee0e2', ui: '#c0c4c9', 'ui-2': '#6d7279', 'ui-3': '#7696be',
+    'tx-3': '#7c8085', 'tx-2': '#4b5257', tx: '#0b0b0c', red: '#c4182d', orange: '#a34918',
+    yellow: '#73570c', green: '#576a23', cyan: '#2a6e67', blue: '#155fca', purple: '#8000fa', magenta: '#bf1567'
   },
   dark: {
-    bg: '#100f0f', 'bg-2': '#1c1b1a', ui: '#282726', 'ui-2': '#403e3c', 'ui-3': '#575653',
-    'tx-3': '#878580', 'tx-2': '#b7b5ac', tx: '#cecdc3', red: '#d14d41', orange: '#da702c',
-    yellow: '#d0a215', green: '#879a39', cyan: '#3aa99f', blue: '#4385be', purple: '#8b7ec8', magenta: '#ce5d97'
+    bg: '#0b0b0c', 'bg-2': '#18191a', ui: '#2e3134', 'ui-2': '#777d83', 'ui-3': '#425d7e',
+    'tx-3': '#6b6f74', 'tx-2': '#98a0a5', tx: '#edeeef', red: '#e9434b', orange: '#c7693c',
+    yellow: '#ad8f4e', green: '#829750', cyan: '#599b94', blue: '#3d85f3', purple: '#9560fd', magenta: '#e34284'
   }
 };
-const STORAGE_KEY = 'tone-palette-studio-v1';
+const STORAGE_KEY = 'paleta-palette-studio-v1';
 const $ = (id) => document.getElementById(id);
 const makeDefaults = () => Object.fromEntries(Object.entries(DEFAULT_HEX).map(([mode, colors]) => [mode, Object.fromEntries(Object.entries(colors).map(([role, hex]) => [role, hexToOkhsl(hex)]))]));
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const validColor = (color) => color && typeof color === 'object' && Number.isFinite(color.h) && Number.isFinite(color.s) && Number.isFinite(color.l) && color.h >= 0 && color.h <= 360 && color.s >= 0 && color.s <= 100 && color.l >= 0 && color.l <= 100;
 const validPalettes = (palettes) => palettes && ['light', 'dark'].every((mode) => palettes[mode] && ROLES.every(([role]) => validColor(palettes[mode][role])));
+const validThemeName = (value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= MAX_THEME_NAME_LENGTH && /[\p{L}\p{N}]/u.test(value);
 let state = { mode: 'light', selected: 'bg', palettes: makeDefaults() };
+let themeName = DEFAULT_THEME_NAME;
 let siteThemeEnabled = true;
 let undo = { light: null, dark: null };
 let generationUndo = { light: null, dark: null };
@@ -56,6 +61,7 @@ try {
     if (validPalettes(parsed.palettes) && ['light', 'dark'].includes(parsed.mode) && ROLES.some(([role]) => role === parsed.selected)) {
       state = { mode: parsed.mode, selected: parsed.selected, palettes: parsed.palettes };
       if (typeof parsed.siteThemeEnabled === 'boolean') siteThemeEnabled = parsed.siteThemeEnabled;
+      if (validThemeName(parsed.themeName)) themeName = parsed.themeName.trim();
     } else {
       persistenceWarning = true;
     }
@@ -75,7 +81,7 @@ function cancelPendingImport() {
 
 function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, siteThemeEnabled }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, themeName, siteThemeEnabled }));
   } catch {
     if (!persistenceWarning) toast('Could not save locally. Export your palette to keep it.');
     persistenceWarning = true;
@@ -183,6 +189,33 @@ $('site-theme-toggle').addEventListener('click', () => {
   renderSiteTheme();
   save();
 });
+
+// The theme name travels with the palette into exported names and metadata.
+const themeNameInput = $('theme-name');
+const THEME_NAME_ERROR = 'Enter a theme name with at least one letter or number. It is used in exported filenames.';
+themeNameInput.addEventListener('input', (event) => {
+  if (!validThemeName(event.target.value)) {
+    event.target.setCustomValidity(THEME_NAME_ERROR);
+    return;
+  }
+  event.target.setCustomValidity('');
+  themeName = event.target.value.trim();
+  save();
+});
+themeNameInput.addEventListener('change', (event) => {
+  if (validThemeName(event.target.value)) {
+    themeName = event.target.value.trim();
+    event.target.value = themeName;
+    event.target.setCustomValidity('');
+    save();
+    return;
+  }
+  event.target.setCustomValidity(THEME_NAME_ERROR);
+  event.target.reportValidity();
+  event.target.value = themeName;
+  event.target.setCustomValidity('');
+});
+const themeSlug = () => themeName.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
 
 for (const [id, property] of [['hue', 'h'], ['saturation', 's'], ['lightness', 'l']]) {
   $(id).addEventListener('input', (event) => {
@@ -548,11 +581,12 @@ selectPreview(0);
 
 function cssExport() {
   const block = (mode, selector) => `${selector} {\n${ROLES.map(([role]) => `  --color-${role}: ${okhslToHex(state.palettes[mode][role])};`).join('\n')}\n}`;
-  return `/* Generated with Tone. Set data-theme="dark" on your document to use the dark palette. */\n${block('light', ':root,\n[data-theme="light"]')}\n\n${block('dark', '[data-theme="dark"]')}\n`;
+  const commentName = themeName.replace(/\s+/g, ' ').replace(/\*\//g, '* /');
+  return `/* ${commentName} — generated with Paleta. Set data-theme="dark" on your document to use the dark palette. */\n${block('light', ':root,\n[data-theme="light"]')}\n\n${block('dark', '[data-theme="dark"]')}\n`;
 }
 function jsonExport() {
   const modes = Object.fromEntries(['light', 'dark'].map((mode) => [mode, Object.fromEntries(ROLES.map(([role]) => [role, { hex: okhslToHex(state.palettes[mode][role]), okhsl: state.palettes[mode][role] }]))]));
-  return `${JSON.stringify({ name: 'Tone palette', colorSpace: 'OKHSL', modes }, null, 2)}\n`;
+  return `${JSON.stringify({ name: themeName, colorSpace: 'OKHSL', modes }, null, 2)}\n`;
 }
 function parsePaletteImport(content) {
   let data;
@@ -562,7 +596,10 @@ function parsePaletteImport(content) {
     throw new Error('The selected file is not valid JSON.');
   }
   if (!data || typeof data !== 'object' || Array.isArray(data) || data.colorSpace !== 'OKHSL' || !data.modes || typeof data.modes !== 'object' || Array.isArray(data.modes)) {
-    throw new Error('Expected a Tone JSON export with OKHSL light and dark modes.');
+    throw new Error('Expected a Paleta JSON export with OKHSL light and dark modes.');
+  }
+  if (!validThemeName(data.name)) {
+    throw new Error(`The exported palette needs a theme name with at least one letter or number, no longer than ${MAX_THEME_NAME_LENGTH} characters.`);
   }
   const palettes = {};
   for (const mode of ['light', 'dark']) {
@@ -580,7 +617,7 @@ function parsePaletteImport(content) {
     }
     palettes[mode] = colors;
   }
-  return palettes;
+  return { name: data.name.trim(), palettes };
 }
 
 $('import-button').addEventListener('click', () => $('import-file').click());
@@ -607,15 +644,18 @@ $('import-file').addEventListener('change', async (event) => {
   // A slower earlier file must not overwrite a later selection or edit.
   if (request !== latestImport) return;
   importPending = false;
-  let palettes;
+  let imported;
   try {
-    palettes = parsePaletteImport(content);
+    imported = parsePaletteImport(content);
   } catch (error) {
     message.textContent = `${error.message} Your colors have not been changed.`;
     message.hidden = false;
     return;
   }
-  state.palettes = palettes;
+  state.palettes = imported.palettes;
+  themeName = imported.name;
+  $('theme-name').value = themeName;
+  $('theme-name').setCustomValidity('');
   undo = { light: null, dark: null };
   generationUndo = { light: null, dark: null };
   generationNotes = { light: null, dark: null };
@@ -625,7 +665,7 @@ $('import-file').addEventListener('change', async (event) => {
   $('hex-help').textContent = '';
   render();
   save();
-  message.textContent = 'Imported both light and dark palettes. You can continue editing.';
+  message.textContent = `Imported both light and dark palettes as "${themeName}". You can continue editing.`;
   message.hidden = false;
 });
 
@@ -667,13 +707,13 @@ $('copy-css').addEventListener('click', async () => {
   }
   closeExport();
 });
-$('download-css').addEventListener('click', () => { download('tone-palette.css', cssExport(), 'text/css'); closeExport(); toast('CSS palette downloaded.'); });
-$('download-json').addEventListener('click', () => { download('tone-palette.json', jsonExport(), 'application/json'); closeExport(); toast('JSON palette downloaded.'); });
+$('download-css').addEventListener('click', () => { download(`${themeSlug()}.css`, cssExport(), 'text/css'); closeExport(); toast('CSS palette downloaded.'); });
+$('download-json').addEventListener('click', () => { download(`${themeSlug()}.json`, jsonExport(), 'application/json'); closeExport(); toast('JSON palette downloaded.'); });
 for (const mode of ['light', 'dark']) {
   $(`download-base16-${mode}`).addEventListener('click', () => {
     try {
-      const yaml = serializeBase16(state.palettes[mode], mode);
-      download(`tone-base16-${mode}.yaml`, yaml, 'application/yaml;charset=utf-8');
+      const yaml = serializeBase16(state.palettes[mode], mode, themeName);
+      download(`${themeSlug()}-base16-${mode}.yaml`, yaml, 'application/yaml;charset=utf-8');
       toast(`Base16-style ${mode} palette downloaded.`);
     } catch (error) {
       toast(`Could not export Base16-style ${mode}: ${error.message}`);
@@ -683,5 +723,6 @@ for (const mode of ['light', 'dark']) {
   });
 }
 
+$('theme-name').value = themeName;
 render();
 if (persistenceWarning) toast('Saved colors could not be loaded. Export your palette to keep it.');

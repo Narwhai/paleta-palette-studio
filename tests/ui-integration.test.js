@@ -54,7 +54,9 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
   assert.match(html, /<div class="optimize-actions">\s*<button[^>]*id="optimize-button"[^>]*>.*?<\/button>\s*<button[^>]*id="undo-button"[^>]*aria-describedby="undo-help"[^>]*disabled[^>]*>↶ Undo optimization<\/button>\s*<\/div>/, 'a visible undo button sits with Optimize and describes what it restores');
   assert.match(html, /id="undo-help">Undo restores this mode to its colors before the latest optimization, including removing any later edits\./);
   assert.match(html, /id="import-button"[^>]*aria-describedby="import-help"[^>]*>Import JSON/);
-  assert.match(html, /id="import-help">Replaces both modes/);
+  assert.match(html, /id="import-help">Replaces both modes and the theme name/);
+  assert.match(html, /id="theme-name"[^>]*type="text"[^>]*maxlength="60"[^>]*value="Bolis"[^>]*aria-describedby="theme-name-help"/);
+  assert.match(html, /<label for="theme-name">THEME NAME<\/label>/);
   assert.match(html, /id="import-file"[^>]*type="file"[^>]*accept="\.json,application\/json"/);
   assert.match(html, /id="import-message"[^>]*role="status"/);
   assert.match(html, /id="site-theme-toggle"[^>]*aria-pressed="true"/);
@@ -135,7 +137,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
 
   try {
     await import('../src/app.js');
-    const saved = () => JSON.parse(storage.get('tone-palette-studio-v1'));
+    const saved = () => JSON.parse(storage.get('paleta-palette-studio-v1'));
     const assertPreviewsMatchPalette = (mode) => {
       for (const [role, color] of Object.entries(saved().palettes[mode])) {
         const expected = okhslToHex(color);
@@ -333,7 +335,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     byId('download-base16-dark').click();
     assert.equal(byId('export-menu').hidden, true);
     assert.equal(document.activeElement, byId('export-toggle'));
-    assert.deepEqual(downloads.map((item) => item.filename), ['tone-palette.css', 'tone-palette.json', 'tone-base16-light.yaml', 'tone-base16-dark.yaml']);
+    assert.deepEqual(downloads.map((item) => item.filename), ['bolis.css', 'bolis.json', 'bolis-base16-light.yaml', 'bolis-base16-dark.yaml']);
     const base16Roles = ['bg', 'bg-2', 'ui', 'ui-2', 'ui-3', 'tx-3', 'tx-2', 'tx', 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'];
     assert.equal(new Set(base16Roles).size, 16, 'each selected palette role appears once');
     for (const [index, mode] of ['light', 'dark'].entries()) {
@@ -342,8 +344,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
       const lines = yaml.trimEnd().split('\n');
       assert.equal(lines.length, 18);
       assert.equal(new Set(base16Roles.slice(0, 8).map((role) => okhslToHex(before[mode][role]))).size, 8, `${mode} uses eight distinct test base colors`);
-      assert.equal(lines[0], `scheme: "Tone Palette ${mode === 'light' ? 'Light' : 'Dark'}"`);
-      assert.equal(lines[1], 'author: "Unknown (generated with Tone)"');
+      assert.equal(lines[0], `scheme: "Bolis ${mode === 'light' ? 'Light' : 'Dark'}"`);
+      assert.equal(lines[1], 'author: "Unknown (generated with Paleta)"');
       for (const [slot, role] of base16Roles.entries()) {
         const key = `base${slot.toString(16).toUpperCase().padStart(2, '0')}`;
         assert.equal(lines[slot + 2], `${key}: "${okhslToHex(before[mode][role]).slice(1)}"`, `${mode} ${key} uses current ${role}`);
@@ -356,6 +358,33 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(document.activeElement, byId('export-toggle'), 'Escape restores menu-button focus');
     byId('download-json').click();
     assert.deepEqual(JSON.parse(await blobs.at(-1).text()), json, 'existing JSON export stays unchanged after Base16 downloads');
+
+    // The theme name is palette state: it persists, names downloads and appears
+    // in exported metadata. Invalid names never replace the saved name.
+    const nameInput = byId('theme-name');
+    assert.equal(nameInput.value, 'Bolis', 'the starting theme name is shown');
+    assert.equal(saved().themeName, 'Bolis', 'the theme name is saved with the palette');
+    nameInput.value = 'Night Owl!';
+    nameInput.dispatch('input');
+    assert.equal(saved().themeName, 'Night Owl!');
+    byId('download-css').click();
+    byId('download-json').click();
+    byId('export-toggle').click();
+    byId('download-base16-light').click();
+    assert.deepEqual(downloads.slice(-3).map((item) => item.filename), ['night-owl.css', 'night-owl.json', 'night-owl-base16-light.yaml']);
+    assert.match(await blobs.at(-3).text(), /^\/\* Night Owl! — generated with Paleta\./);
+    assert.equal(JSON.parse(await blobs.at(-2).text()).name, 'Night Owl!');
+    assert.match(await blobs.at(-1).text(), /^scheme: "Night Owl! Light"/);
+    nameInput.value = '   ';
+    nameInput.dispatch('input');
+    assert.equal(saved().themeName, 'Night Owl!', 'an empty name is not saved');
+    assert.match(nameInput.validationMessage, /at least one letter or number/);
+    nameInput.value = '  Spaced Name  ';
+    nameInput.dispatch('change');
+    assert.equal(saved().themeName, 'Spaced Name');
+    assert.equal(nameInput.value, 'Spaced Name', 'the committed name is trimmed in the field');
+    nameInput.value = 'Night Owl!';
+    nameInput.dispatch('input');
 
     byId('optimize-button').click();
     slider.value = '165';
@@ -374,7 +403,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(pickerOpened, true, 'the visible import action opens the file input');
     const importFile = (file) => {
       fileInput.files = [file];
-      fileInput.value = 'C:\\fakepath\\tone-palette.json';
+      fileInput.value = 'C:\\fakepath\\bolis.json';
       return fileInput.dispatch('change');
     };
     const jsonFile = (value) => ({ text: async () => JSON.stringify(value) });
@@ -389,6 +418,8 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     assert.equal(saved().mode, 'light', 'import preserves the current mode');
     assert.equal(byId('selected-name').textContent, selectedBeforeImport, 'import preserves the selected role');
     assert.deepEqual(saved().palettes, before, 'both edited modes round-trip with exact OKHSL values');
+    assert.equal(saved().themeName, 'Bolis', 'import restores the theme name from the file');
+    assert.equal(byId('theme-name').value, 'Bolis', 'the imported name is shown in the field');
     assertPreviewsMatchPalette('light');
     assert.equal(byId('undo-button').disabled, true, 'import clears light optimization history');
     assert.match(byId('import-message').textContent, /Imported both light and dark palettes/);
@@ -414,8 +445,11 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     const beforeInvalidImport = structuredClone(saved());
     const invalidFiles = [
       { file: { text: async () => '{broken' }, error: /not valid JSON/ },
-      { file: jsonFile({ ...json, colorSpace: 'HSL' }), error: /Expected a Tone JSON export/ },
-      { file: jsonFile({ colorSpace: 'OKHSL', modes: { light: json.modes.light } }), error: /Missing dark mode/ },
+      { file: jsonFile({ ...json, colorSpace: 'HSL' }), error: /Expected a Paleta JSON export/ },
+      { file: jsonFile({ ...json, name: '' }), error: /theme name/ },
+      { file: jsonFile({ ...json, name: '   ' }), error: /theme name/ },
+      { file: jsonFile({ ...json, name: 'x'.repeat(61) }), error: /theme name/ },
+      { file: jsonFile({ name: json.name, colorSpace: 'OKHSL', modes: { light: json.modes.light } }), error: /Missing dark mode/ },
       { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: undefined } } }), error: /missing a valid blue color/ },
       { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: 361, s: 20, l: 30 } } } } }), error: /finite OKHSL values/ },
       { file: jsonFile({ ...json, modes: { ...json.modes, dark: { ...json.modes.dark, blue: { ...json.modes.dark.blue, okhsl: { h: null, s: 20, l: 30 } } } } }), error: /finite OKHSL values/ },
@@ -575,6 +609,7 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     await importFile(jsonFile(makeExport(reported)));
     byId('mode-light').click();
     assert.deepEqual(saved().palettes, reported, 'import restores both modes of the reported palette');
+    assert.equal(saved().themeName, 'Regression palette', 'import replaces the theme name too');
     byId('optimize-button').click();
     const optimized = saved().palettes;
     assert.deepEqual(optimized.dark, reported.dark, 'optimizing light does not affect dark');
@@ -1059,15 +1094,18 @@ test('editor flows preserve per-mode palettes, undo and export', async () => {
     await import('../src/app.js?site-theme-reload');
     assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral');
     assert.equal(byId('site-theme-toggle').getAttribute('aria-pressed'), 'false');
+    assert.equal(byId('theme-name').value, 'Regression palette', 'the theme name is restored on reload');
     assert.deepEqual(saved(), beforeReload);
     assertPreviewsMatchPalette(beforeReload.mode);
     byId('reset-button').click();
     assert.equal(document.documentElement.getAttribute('data-site-theme'), 'neutral', 'resetting colors preserves the recovery preference');
+    assert.equal(saved().themeName, 'Regression palette', 'resetting colors keeps the theme name');
+    assert.equal(byId('theme-name').value, 'Regression palette');
     assertPreviewsMatchPalette('light');
 
     const oldSave = saved();
     delete oldSave.siteThemeEnabled;
-    storage.set('tone-palette-studio-v1', JSON.stringify(oldSave));
+    storage.set('paleta-palette-studio-v1', JSON.stringify(oldSave));
     freshDom();
     await import('../src/app.js?site-theme-legacy');
     assert.equal(document.documentElement.getAttribute('data-site-theme'), 'palette', 'older saves enable the new preview');

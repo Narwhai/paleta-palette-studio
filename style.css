@@ -187,3 +187,13 @@
 
 @media(max-width:600px){.topbar{height:auto;min-height:65px;flex-wrap:wrap;gap:8px;padding-top:8px;padding-bottom:8px}.top-actions{flex-basis:100%;min-width:0;flex-wrap:wrap;justify-content:flex-end;gap:4px}}
 @media(max-width:250px){.top-actions{justify-content:flex-start}}
+
+/* The theme name is part of the palette: exports use it in filenames and metadata. */
+.theme-name-field{display:flex;flex-wrap:wrap;align-items:center;gap:5px 9px;margin-top:10px;color:#9e9b90;font-size:9px;font-weight:750;letter-spacing:.11em}
+.theme-name-field input{width:190px;min-width:0;max-width:100%;padding:6px 8px;border:1px solid #e3dfd2;border-radius:5px;background:#fffefa;color:#414038;font-size:12px;font-weight:650;letter-spacing:0}
+.theme-name-field input:focus{border-color:#c7c0ae}
+.theme-name-field span{font-size:9px;font-weight:600;letter-spacing:.04em;color:#aaa79c}
+:root[data-site-theme="palette"] .theme-name-field{color:var(--site-tx-3)}
+:root[data-site-theme="palette"] .theme-name-field span{color:var(--site-tx-2)}
+:root[data-site-theme="palette"] .theme-name-field input{background:var(--site-bg);color:var(--site-tx);border-color:var(--site-ui-2)}
+@media(max-width:450px){.theme-name-field input{width:100%}}

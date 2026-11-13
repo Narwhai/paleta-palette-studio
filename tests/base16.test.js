@@ -28,11 +28,11 @@ for (const mode of ['light', 'dark']) {
     assert.equal(new Set(roles).size, 16, 'every role is represented once');
     assert.equal(new Set(roles.slice(0, 8).map((role) => okhslToHex(colors[role]))).size, 8, 'the eight selected base colors are distinct');
     const before = structuredClone(colors);
-    const output = serializeBase16(colors, mode);
+    const output = serializeBase16(colors, mode, 'Bolis');
     const lines = output.trimEnd().split('\n');
     assert.equal(lines.length, 18, 'two metadata fields and exactly 16 color slots');
-    assert.equal(lines[0], `scheme: "Tone Palette ${mode === 'light' ? 'Light' : 'Dark'}"`);
-    assert.equal(lines[1], 'author: "Unknown (generated with Tone)"');
+    assert.equal(lines[0], `scheme: "Bolis ${mode === 'light' ? 'Light' : 'Dark'}"`);
+    assert.equal(lines[1], 'author: "Unknown (generated with Paleta)"');
     for (const [index, role] of roles.entries()) {
       assert.equal(lines[index + 2], `${slot(index)}: "${okhslToHex(colors[role]).slice(1)}"`, `${slot(index)} uses ${role}`);
     }
@@ -41,16 +41,18 @@ for (const mode of ['light', 'dark']) {
   });
 }
 
-test('Base16 serialization rejects invalid mode and incomplete or out-of-range palettes', () => {
-  assert.throws(() => serializeBase16(palette('light'), 'sepia'), /mode/i);
-  assert.throws(() => serializeBase16(palette('light')), /mode/i);
-  assert.throws(() => serializeBase16(null, 'light'), /palette/i);
+test('Base16 serialization rejects invalid mode, missing name and incomplete or out-of-range palettes', () => {
+  assert.throws(() => serializeBase16(palette('light'), 'sepia', 'Bolis'), /mode/i);
+  assert.throws(() => serializeBase16(palette('light'), undefined, 'Bolis'), /mode/i);
+  assert.throws(() => serializeBase16(palette('light'), 'light'), /theme name/i);
+  assert.throws(() => serializeBase16(palette('light'), 'light', '   '), /theme name/i);
+  assert.throws(() => serializeBase16(null, 'light', 'Bolis'), /palette/i);
   const missing = palette('light');
   delete missing['ui-2'];
-  assert.throws(() => serializeBase16(missing, 'light'), /ui-2/i);
+  assert.throws(() => serializeBase16(missing, 'light', 'Bolis'), /ui-2/i);
   for (const [property, value] of [['h', -1], ['h', 361], ['s', -0.1], ['s', 100.1], ['l', Infinity], ['l', NaN]]) {
     const invalid = palette('light');
     invalid.red[property] = value;
-    assert.throws(() => serializeBase16(invalid, 'light'), /red/i, `rejects red ${property}=${value}`);
+    assert.throws(() => serializeBase16(invalid, 'light', 'Bolis'), /red/i, `rejects red ${property}=${value}`);
   }
 });

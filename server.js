@@ -21,4 +21,4 @@ createServer(async (request, response) => {
   } catch (error) {
     response.writeHead(error.code === 'ENOENT' ? 404 : 400).end('Not found');
   }
-}).listen(port, () => console.log(`Tone is running at http://localhost:${port}`));
+}).listen(port, () => console.log(`Paleta is running at http://localhost:${port}`));

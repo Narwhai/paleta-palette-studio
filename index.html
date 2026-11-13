@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <!-- eslint-disable-next-line @html-eslint/use-baseline -->
-        <meta name="theme-color" content="#f5f3ed">
+        <meta name="theme-color" content="#edeeef">
         <title>Paleta — a palette studio</title>
         <link rel="stylesheet" href="./style.css">
     </head>
@@ -34,7 +34,7 @@
                     id="import-button"
                     type="button"
                     aria-describedby="import-help"
-                >Import JSON <span id="import-help">Replaces both modes</span></button>
+                >Import JSON <span id="import-help">Replaces both modes and the theme name</span></button>
                 <input
                     id="import-file"
                     type="file"
@@ -89,6 +89,19 @@
                         <div class="section-heading palette-heading">
                             <div>
                                 <h2 id="palette-title">Colors</h2>
+                                <div class="theme-name-field">
+                                    <label for="theme-name">THEME NAME</label>
+                                    <input
+                                        id="theme-name"
+                                        type="text"
+                                        maxlength="60"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        value="Bolis"
+                                        aria-describedby="theme-name-help"
+                                    >
+                                    <span id="theme-name-help">Exports use this name</span>
+                                </div>
                             </div>
                             <div
                                 class="mode-switch"
@@ -107,7 +120,7 @@
                                 >☾ <span>Dark</span></button>
                             </div>
                         </div>
-                        <div class="palette-intro"><span id="palette-description">Light mode · 16 colors</span><span>Select a swatch to edit <span aria-hidden="true">↗</span></span></div>
+                        <div class="palette-intro"><span id="palette-description">Light mode · 16 colors</span></div>
                         <div class="generate-card">
                             <strong>Make the matching mode</strong>
                             <p id="generate-help">Generate dark from the current light palette. This replaces the dark palette.</p>
@@ -258,7 +271,6 @@
                                 >↶ Undo optimization</button>
                             </div>
                         </div>
-                        <div class="optimizer-bottom"><span>AN APPROXIMATION, NOT A GUARANTEE</span></div>
                         <details class="optimizer-details">
                             <summary>How optimization works</summary>
                             <p>First, interface roles are separated from BG: BG 2 at 1.04:1, UI at 1.08:1, UI 2 at 1.14:1, and UI 3 at 1.22:1. Text and Text 2 are checked against BG, BG 2, and UI at 7:1 and 4.5:1, respectively. Text 3 at 3:1 and each accent at 4.5:1 are checked against BG and BG 2. UI 2 and UI 3 are treated as borders or details, not text backgrounds. The solver seeks colors no lighter than their checked backgrounds in light mode, and no darker in dark mode. If a target cannot be met in that direction, the selected color is kept; the warning reports both the best directional ratio and the selected color's actual minimum contrast. The contrast check above shows only BG and BG 2. This WCAG-based approach approximates the article’s method, not its exact perceptual algorithm, and is not a universal accessibility guarantee. Check your actual usage.</p>
@@ -336,27 +348,27 @@
                                         <div class="preview-main">
                                             <div class="preview-welcome">
                                                 <div>
-                                                    <span class="preview-kicker">YOUR CREATIVE SPACE <span>✳</span></span>
-                                                    <h3>Ideas live here<span>.</span></h3>
-                                                    <p>A little room to make something wonderful.</p>
+                                                    <span class="preview-kicker">Preview Kicker</span>
+                                                    <h3>Page Title</h3>
+                                                    <p>Subtitle, with some additional text</p>
                                                 </div>
-                                                <span class="preview-new">＋ &nbsp; New project</span>
+                                                <span class="preview-new">＋ &nbsp; Action Button</span>
                                             </div>
                                             <div class="preview-cards">
                                                 <div class="preview-card">
                                                     <div class="preview-card-top"><span class="preview-card-icon orange">◈</span><span>↗</span></div>
-                                                    <small>THE BIG PICTURE</small><strong>Collect the good stuff.</strong>
-                                                    <p>All the things worth keeping, in one place.</p>
+                                                    <small>This might be the one</small><strong>My Good Idea</strong>
+                                                    <p>These are details about my idea and what it is</p>
                                                     <div class="preview-tags"><span class="tag-orange">Ideas</span><span class="tag-green">In progress</span></div>
                                                 </div>
                                                 <div class="preview-card">
                                                     <div class="preview-card-top"><span class="preview-card-icon purple">✳</span><span>↗</span></div>
-                                                    <small>THE LITTLE DETAILS</small><strong>Make room to explore.</strong>
-                                                    <p>A thoughtful space for your next great idea.</p>
+                                                    <small>It could happen to you</small><strong>Something That Happened</strong>
+                                                    <p>It happened to me</p>
                                                     <div class="preview-tags"><span class="tag-blue">Notes</span><span class="tag-purple">Personal</span></div>
                                                 </div>
                                             </div>
-                                            <div class="preview-bottom"><span>● &nbsp; Everything is looking good</span><span>Made with intention ✳</span></div>
+                                            <div class="preview-bottom"><span>● &nbsp; Good Status</span><span>Subtitle</span></div>
                                         </div>
                                     </div>
                                 </div></div>
@@ -396,8 +408,7 @@ class="syntax-code"
 tabindex="0"
 role="region"
 aria-label="TypeScript syntax example; scroll horizontally for long lines"
-><code><span class="syntax-comment">// A little color goes a long way.</span>
-<span class="syntax-keyword">type</span> <span class="syntax-type">Palette</span> = {
+><code><span class="syntax-keyword">type</span> <span class="syntax-type">Palette</span> = {
   <span class="syntax-property">name</span>: <span class="syntax-type">string</span>;
   <span class="syntax-property">colors</span>: <span class="syntax-type">number</span>;
   <span class="syntax-property">ready</span>: <span class="syntax-type">boolean</span>;
@@ -412,10 +423,9 @@ aria-label="TypeScript syntax example; scroll horizontally for long lines"
 <span class="syntax-keyword">const</span> studio = <span class="syntax-function">createPalette</span>(<span class="syntax-string">"daylight"</span>, <span class="syntax-number">8</span>);</code></pre>
                                     </div>
                                     <aside class="syntax-legend" aria-label="Syntax token colors">
-                                        <span class="syntax-legend-title">THE LITTLE DETAILS</span><strong>Color, in context.</strong>
-                                        <p>A small glimpse at how each accent works together.</p>
+                                        <span class="syntax-legend-title">Syntax Highlighting</span><strong>Color, in context.</strong>
+                                        <p>A small preview of how code might look with these colors.</p>
                                         <div class="syntax-token-list"><span class="syntax-keyword"><i aria-hidden="true"></i>Keyword</span><span class="syntax-string"><i aria-hidden="true"></i>String</span><span class="syntax-function"><i aria-hidden="true"></i>Function</span><span class="syntax-type"><i aria-hidden="true"></i>Type</span><span class="syntax-property"><i aria-hidden="true"></i>Property</span><span class="syntax-number"><i aria-hidden="true"></i>Number</span><span class="syntax-constant"><i aria-hidden="true"></i>Constant</span><span class="syntax-operator"><i aria-hidden="true"></i>Operator</span></div>
-                                        <div class="syntax-legend-note"><span aria-hidden="true">✳</span> A palette for the details.</div>
                                     </aside>
                                 </div>
                             </div>
@@ -423,15 +433,6 @@ aria-label="TypeScript syntax example; scroll horizontally for long lines"
                     </div>
                 </aside>
             </div>
-            <footer class="footer"><span><strong>tone<span>.</span></strong> A little studio for color.</span><span>INSPIRED BY <a
-                        href="https://earendil.com/posts/system-theme/"
-                        target="_blank"
-                        rel="noreferrer"
-                    >SYSTEM THEME ↗</a> &amp; <a
-                        href="https://stephango.com/flexoki"
-                        target="_blank"
-                        rel="noreferrer"
-                    >FLEXOKI ↗</a></span><span>MADE FOR THE DETAILS ✳</span></footer>
         </main>
         <dialog
             class="base-dialog"
